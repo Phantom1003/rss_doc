@@ -2,9 +2,9 @@
 
 # -- Project information
 
-project = 'Lumache'
-copyright = '2021, Graziella'
-author = 'Graziella'
+project = 'RISC-V Spike SDK'
+copyright = '2023, Sycuricon Group'
+author = 'Sycuricon'
 
 release = '0.1'
 version = '0.1.0'
