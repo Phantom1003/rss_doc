@@ -13,7 +13,8 @@ However, existing tutorials for running Linux on Spike use static compiled busyb
 With RSS, users can access scripts and configurations that build a real-world Linux environment for RISC-V embedded systems, allowing them to focus exclusively on project-specific components.
 Furthermore, the images provided by RSS can be used on QEMU and FPGA prototype systems.
 
-
+In addition to the basic usage guidelines, this document will also cover instructions for customizing the simulator, operating system, and toolchain.
+We hope that RSS can assist you in exploring the mystery computer system and conducting your fancy research!
 
 Table of Contents
 -----------------
