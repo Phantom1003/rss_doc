@@ -1,13 +1,17 @@
 # Configuration file for the Sphinx documentation builder.
 
+import os
+
+mode = os.environ.get("SYCURICON_SPHINX_MODE")
+
 # -- Project information
 
 project = 'RISC-V Spike SDK'
 copyright = '2023, Sycuricon Group'
-author = 'Sycuricon'
+author = 'Jinyan Xu'
 
-release = '0.1'
-version = '0.1.0'
+version = 'latest'
+release = version
 
 # -- General configuration
 
@@ -30,6 +34,12 @@ templates_path = ['_templates']
 # -- Options for HTML output
 
 html_theme = 'sphinx_rtd_theme'
+
+html_static_path = ['_static']
+
+html_js_files = [
+    'js/refresh.js' if mode == "DEBUG" else None,
+]
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
