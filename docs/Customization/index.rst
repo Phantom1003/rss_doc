@@ -10,4 +10,3 @@ Next, we will provide step-by-step instructions on the following topics:
   Spike-Customization
 
 To get started, simply click "next".
-

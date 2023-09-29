@@ -1,8 +1,10 @@
 # Configuration file for the Sphinx documentation builder.
 
 import os
+import sys
 
 mode = os.environ.get("SYCURICON_SPHINX_MODE")
+sys.path.append(os.path.abspath("./_ext"))
 
 # -- Project information
 
@@ -21,6 +23,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
+    # custom extensions
+    'pdfview'
 ]
 
 intersphinx_mapping = {
@@ -31,6 +35,10 @@ intersphinx_disabled_domains = ['std']
 
 templates_path = ['_templates']
 
+# -- Options for Extensions
+
+numfig = True
+
 # -- Options for HTML output
 
 html_theme = 'sphinx_rtd_theme'
@@ -38,7 +46,7 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
 html_js_files = [
-    'js/refresh.js' if mode == "DEBUG" else None,
+    'js/refresh.js' if mode == "DEBUG" else "",
 ]
 
 # -- Options for EPUB output
