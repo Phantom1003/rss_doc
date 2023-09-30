@@ -28,7 +28,7 @@ From the :numref:`custom_opcode_space`, we can find that the reserved opcodes fo
 Some projects have already used these custom opcodes, such as Rocket Chip.
 Rocket core provides a set of custom instructions, the Rocket Chip Coprocessor (ROCC) instruction extension, for accelerators.
 
-The format of the RoCC instructions follows the R-type format, while the `funct3` part is divided into three bit fields.
+The RoCC instructions follow a format similar to the R-type format, but the `funct3` section is divided into three distinct functional fields.
 
 .. code-block:: text
 
@@ -42,11 +42,12 @@ The format of the RoCC instructions follows the R-type format, while the `funct3
   - ``xd`` bit is used to indicate whether the instruction writes a destination register.
   - ``xs1`` and ``xs2`` bits are used to indicate whether the instruction reads source registers.
 
-When the source register and destination register fields are not used, these bits can be used to encode other information, which is really different from the RISC-V standard R-type instruction format.
+In cases where an instruction does not use source and destination registers, the corresponding register index fields can encode other information, which deviates from the standard RISC-V R-type instruction format.
 
-Here we provide the ROCC example to demonstrate that the format of a custom instruction is not restricted to the standard instruction format. As you create your own custom instruction, you have the freedom to define the format in any way you prefer.
-However, it is crucial to thoughtfully and reasonably plan every bit of the instruction format.
-When assigning meaning to a bit, it is essential to consider whether it will affect the circuit.
+Here we provide the ROCC example to demonstrate that the format of a custom instruction is not restricted to the standard instruction format.
+As you create your own custom instruction, you have the freedom to define the format in any way you prefer.
+However, it is crucial to thoughtfully and reasonably plan each instruction bit.
+When assigning functionality to a bit, it is crucial to consider how it will impact the circuit and architecture.
 
 `riscv-opcodes <https://github.com/riscv/riscv-opcodes>`_
 ---------------------------------------------------------
