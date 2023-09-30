@@ -1,5 +1,4 @@
 sphinx==7.1.2
 sphinxcontrib-bibtex==2.6.1
-# sphinx-nefertiti==0.1.11
-sphinx-nefertiti @ https://github.com/Phantom1003/sphinx-nefertiti/releases/download/patch/sphinx-nefertiti-0.1.11.tar.gz
+sphinx-nefertiti==0.1.12
 pdf2image==1.16.3
