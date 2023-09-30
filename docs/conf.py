@@ -24,7 +24,8 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     # custom extensions
-    'pdfview'
+    'pdfview',
+    'sphinxcontrib.bibtex',
 ]
 
 intersphinx_mapping = {
@@ -38,10 +39,18 @@ templates_path = ['_templates']
 # -- Options for Extensions
 
 numfig = True
+bibtex_bibfiles = ['refs.bib']
 
 # -- Options for HTML output
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_nefertiti'
+
+html_theme_options = {
+    "style": "blue",
+    "documentation_font": "Open Sans",
+    "monospace_font": "Ubuntu Mono",
+    "monospace_font_size": "1.1rem",
+}
 
 html_static_path = ['_static']
 

@@ -1,3 +1,4 @@
 sphinx==7.1.2
-sphinx-rtd-theme==1.3.0rc1
+sphinxcontrib-bibtex==2.6.1
+sphinx-nefertiti==0.1.11
 pdf2image==1.16.3
