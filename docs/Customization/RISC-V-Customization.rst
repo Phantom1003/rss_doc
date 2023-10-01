@@ -15,8 +15,9 @@ Althougn you can use any opcodes, to avoid conflicts with future standard extens
   :left: 0.074
   :upper: 0.218
   :right: 0.926
-  :lower: 0.462
-  
+  :lower: 0.448
+  :width: 80%
+
   Unprivileged ISA Specification, Table 35
 
 From the :numref:`custom_opcode_space`, we can find that the reserved opcodes for custom instructions are:
@@ -64,7 +65,7 @@ The specification also reserves various CSR address spaces for custom purposes.
   :upper: 0.165
   :right: 0.788
   :lower: 0.340
-  :width: 50%
+  :width: 60%
   
   Privileged ISA Specification, Table 3-4
 

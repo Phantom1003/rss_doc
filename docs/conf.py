@@ -61,7 +61,6 @@ html_js_files = [
 ]
 
 html_css_files = [
-        'css/image.css',
 ]
 
 # -- Options for EPUB output
