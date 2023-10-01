@@ -50,12 +50,18 @@ html_theme_options = {
     "documentation_font": "Open Sans",
     "monospace_font": "Ubuntu Mono",
     "monospace_font_size": "1.1rem",
+    "repository_url": "https://github.com/sycuricon/riscv-spike-sdk",
+    "repository_name": "RSS SDK",
 }
 
 html_static_path = ['_static']
 
 html_js_files = [
     'js/refresh.js' if mode == "DEBUG" else "",
+]
+
+html_css_files = [
+        'css/image.css',
 ]
 
 # -- Options for EPUB output

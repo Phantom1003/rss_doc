@@ -8,7 +8,7 @@ Next, we will provide step-by-step instructions on the following topics:
 .. toctree::
   :maxdepth: 2
   
-  Opcode-Customization
+  RISC-V-Customization
   Spike-Customization
 
 .. footbibliography::

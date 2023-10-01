@@ -1,7 +1,8 @@
-.. _opcode:
+RISC-V Customization
+===========================
 
 RISC-V Opcode Customization
-===========================
+---------------------------
 
 RISC-V is designed to be highly modular and customizable, allowing designers to create custom processor implementations tailored to specific applications and requirements.
 The modularity of RISC-V comes from its encoding scheme, which divides instructions into different groups and provides various optional extensions that can be added to the base ISA.
@@ -49,7 +50,32 @@ As you create your own custom instruction, you have the freedom to define the fo
 However, it is crucial to thoughtfully and reasonably plan each instruction bit.
 When assigning functionality to a bit, it is crucial to consider how it will impact the circuit and architecture.
 
-`riscv-opcodes <https://github.com/riscv/riscv-opcodes>`_
----------------------------------------------------------
 
+RISC-V CSR Customization
+------------------------
+
+You might find it useful to customize the control status register (CSR) to store certain states.
+The specification also reserves various CSR address spaces for custom purposes. 
+
+.. pdfview:: ../_pdf/priv-isa-asciidoc.pdf 15
+  :align: center
+  :name: custom_csr_space
+  :left: 0.214
+  :upper: 0.165
+  :right: 0.788
+  :lower: 0.340
+  :width: 50%
+  
+  Privileged ISA Specification, Table 3-4
+
+Generally, the address of a CSR determines its permission and accessibility.
+The RISC-V ISA specification defines a CSR address mapping convention. 
+For a CSR address (csr[11:0]), the top two bits (csr[11:10]) indicate if the register is read/write (00, 01, or 10) or read-only (11). The following two bits (csr[9:8]) encode the lowest privilege level that can access the CSR.
+Some designs may follow this convention, so if you extend custom CSRs on these designs, you should carefully choose the address of your new CSRs.
+
+
+riscv-opcodes
+-------------
+
+`riscv-opcodes <https://github.com/riscv/riscv-opcodes>`_
 

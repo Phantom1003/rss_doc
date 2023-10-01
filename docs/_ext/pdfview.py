@@ -84,13 +84,14 @@ class PDFViewDirective(Figure):
         if reduce(lambda a, b: a and b, loc):
             width, height = images[0].size
             target_image = images[0].crop(image_relocate(loc, width, height))
-            suffix = f'.{pdf_page}.{hashlib.md5((doc_path+str(doc_line)+"".join(loc)).encode("utf8")).hexdigest()}.png'
+            suffix = f'.{pdf_page}.{hashlib.md5((doc_path+str(doc_line)).encode("utf8")).hexdigest()}.png'
             image_relative_page = pdf_relative_path + suffix
             image_path = pdf_path + suffix
         else:
+            suffix = f'.{pdf_page}.png'
             target_image = images[0]
-            image_relative_page = pdf_relative_path + f'.{pdf_page}.png'
-            image_path = pdf_path + f'.{pdf_page}.png'
+            image_relative_page = pdf_relative_path + suffix
+            image_path = pdf_path + suffix
 
         target_image.save(image_path,"PNG")
         self.arguments[0] = image_relative_page
