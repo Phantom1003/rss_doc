@@ -55,8 +55,9 @@ When assigning functionality to a bit, it is crucial to consider how it will imp
 RISC-V CSR Customization
 ------------------------
 
-You might find it useful to customize the control status register (CSR) to store certain states.
-The specification also reserves various CSR address spaces for custom purposes. 
+The specification also reserves various control status register (CSR) address spaces for custom purposes. 
+You might find it useful to customize the CSR to store certain states.
+
 
 .. pdfview:: ../_pdf/priv-isa-asciidoc.pdf 15
   :align: center
@@ -78,5 +79,9 @@ Some designs may follow this convention, so if you extend custom CSRs on these d
 riscv-opcodes
 -------------
 
-`riscv-opcodes <https://github.com/riscv/riscv-opcodes>`_
+The RISC-V community offers a helpful tool called `riscv-opcodes <https://github.com/riscv/riscv-opcodes>`_ that can generate opcode decoders for various purposes including documents, simulations, and circuits.
+We highly recommend that you utilize this tool to create the opcode decoder for your customized instructions.
+It's important to note that if you choose to self-maintain your opcode, there may be unexpected bugs due to potential incompatible changes in the upstream specification.
+
+
 
