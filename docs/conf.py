@@ -57,12 +57,14 @@ html_theme_options = {
 html_static_path = ['_static']
 
 html_js_files = [
-    'js/refresh.js' if mode == "DEBUG" else "",
 ]
 
 html_css_files = [
-    'css/refresh.css' if mode == "DEBUG" else "",
 ]
+
+if mode == "DEBUG":
+    html_css_files.append('css/refresh.css')
+    html_js_files.append('js/refresh.js')
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
