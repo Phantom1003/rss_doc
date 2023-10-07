@@ -1,0 +1,18 @@
+.current_timestamp {
+    background-color: #fff;
+    width: 225px;
+    height: 38px;
+    padding: 18px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px;
+    font-size: 12px;
+    line-height: 16px;
+    display: block;
+    padding-bottom: 30px;
+}
+
+.fixed-bottom {
+    text-align: center;
+    display: block;
+    position: fixed;
+    bottom: 0;
+}

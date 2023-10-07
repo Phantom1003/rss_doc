@@ -61,6 +61,7 @@ html_js_files = [
 ]
 
 html_css_files = [
+    'css/refresh.css' if mode == "DEBUG" else "",
 ]
 
 # -- Options for EPUB output
