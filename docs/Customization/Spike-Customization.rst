@@ -1,8 +1,8 @@
 Spike Customization
 ===================
 
-Adding New CSRs to Spike
-------------------------
+Adding New CSRs
+---------------
 
-Adding New Instructions to Spike
---------------------------------
+Adding New Instructions
+-----------------------
