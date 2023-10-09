@@ -69,3 +69,6 @@ if mode == "DEBUG":
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
+
+# -- Options for LaTeX output
+latex_engine = 'xelatex'
