@@ -82,3 +82,22 @@ riscv-opcodes
 The RISC-V community offers a helpful tool called `riscv-opcodes <https://github.com/riscv/riscv-opcodes>`_ that can generate opcode decoders for various purposes including documents, simulations, and circuits.
 We highly recommend that you utilize this tool to create the opcode decoder for your customized instructions.
 It's important to note that if you choose to self-maintain your opcode, there may be unexpected bugs due to potential incompatible changes in the upstream specification.
+
+The files named ``rv*`` in the root directory, as well as the ``unratified`` directory, maintain the format of each instruction.
+
+To illustrate how to define an instruction, let's take the ``addi`` instruction from ``rv_i`` as an example.
+This is an I-type instruction with ``rd``, ``rs1``, and ``imm12`` fields, and its opcode is ``0x13``.
+Therefore, the definition of ``addi`` is as follows:
+
+.. code-block:: text
+
+  addi    rd rs1 imm12           14..12=0 6..2=0x04 1..0=3
+
+As you can see, the definition is straightforward.
+Now, we can move on to define our custom instruction.
+
+First, RegVault has really different instruction formats from the standard RISC-V instruction formats.
+So, we need to define the new instruction fields for the range selection fields.
+
+
+

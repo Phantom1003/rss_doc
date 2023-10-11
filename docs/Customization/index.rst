@@ -24,6 +24,8 @@ The mnemonics for these instructions are listed in the table below:
 
 * ``crd[x]k rd[e:s], rs, rt`` is the decryption instruction. It decrypts the value in ``rs`` with given tweak in ``rt`` and key ``x``, and puts the plaintext in ``rd``. Moreover, it checks whether the bytes other than ``[e:s]`` in plaintext remain zero. If not, the integrity check fails and an exception is raised.
 
+RegVault is a great example of how to customize the RISC-V ISA.
+It stands out because it not only contains heteromorphic instruction formats, but also requires the support of new states.
 To implement the RegVault instruction extension, we need to customize the instruction set architecture (ISA) to support the new instructions, and customize the Control and Status Registers (CSRs) to save the keys.
 
 Next, we will provide step-by-step instructions on the following topics:
