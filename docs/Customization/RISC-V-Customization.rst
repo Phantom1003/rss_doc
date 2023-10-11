@@ -99,5 +99,9 @@ Now, we can move on to define our custom instruction.
 First, RegVault has really different instruction formats from the standard RISC-V instruction formats.
 So, we need to define the new instruction fields for the range selection fields.
 
+In order to implement RegVault, we require three 5-bit fields to indicate the indexes of the plaintext, tweak, and ciphertext registers.
+As RegVault is a 64-bit RISC-V instruction extension, we need two additional 3-bit fields to encode the starting byte and ending byte, respectively.
+Additionally, we plan to offer 8 key registers, so we also require 3 bits to encode the key register.
+
 
 
