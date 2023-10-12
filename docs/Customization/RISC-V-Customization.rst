@@ -36,7 +36,7 @@ The RoCC instructions follow a format similar to the R-type format, but the `fun
 
    31      25 24  20 19  15 14  13  12  11  7 6    0
   ┌──────────┬──────┬──────┬───┬───┬───┬─────┬──────┐
-  │  funct7  │  rs2 │  rs1 │ xd│xs1│xs2│  rd │opcode│
+  │  funct7  │ rs2  │ rs1  │ xd│xs1│xs2│ rd  │opcode│
   └──────────┴──────┴──────┴───┴───┴───┴─────┴──────┘
 
 ..
@@ -94,7 +94,8 @@ Therefore, the definition of ``addi`` is as follows:
   addi    rd rs1 imm12           14..12=0 6..2=0x04 1..0=3
 
 As you can see, the definition is straightforward.
-Now, we can move on to define our custom instruction.
+You can find more descriptions about the syntax in the official ``README``.
+Next, we move on to define our custom instruction.
 
 First, RegVault has really different instruction formats from the standard RISC-V instruction formats.
 So, we need to define the new instruction fields for the range selection fields.
@@ -103,5 +104,17 @@ In order to implement RegVault, we require three 5-bit fields to indicate the in
 As RegVault is a 64-bit RISC-V instruction extension, we need two additional 3-bit fields to encode the starting byte and ending byte, respectively.
 Additionally, we plan to offer 8 key registers, so we also require 3 bits to encode the key register.
 
+.. code-block:: text
 
+  TODO: 
+    1. add new fields in arg_lut.csv
+    2. define new instruction format
+    3. define new csr in csrs.csv
 
+After defining the new instruction format, we can generate the opcode decoder by running ``make``.
+The generated ``encoding.out.h`` file will contain the new instructions and CSRs.
+
+.. code-block:: text
+
+  TODO: 
+    list generated instruction and CSR macors
