@@ -89,9 +89,13 @@ To illustrate how to define an instruction, let's take the ``addi`` instruction 
 This is an I-type instruction with ``rd``, ``rs1``, and ``imm12`` fields, and its opcode is ``0x13``.
 Therefore, the definition of ``addi`` is as follows:
 
-.. code-block:: text
-
-  addi    rd rs1 imm12           14..12=0 6..2=0x04 1..0=3
+.. remotecode:: ../_static/tmp/rv_i
+  :url: https://github.com/riscv/riscv-opcodes/blob/19e3ddcc323b809a8b71f9fb0998320e2ba95005/rv_i#L21
+  :language: text
+  :type: github-permalink
+  :lineno-match:
+  :lines: 20-22
+  :caption:
 
 As you can see, the definition is straightforward.
 You can find more descriptions about the syntax in the official ``README``.

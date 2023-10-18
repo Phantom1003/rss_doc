@@ -12,17 +12,32 @@ import json
 class RemoteCodeError(SphinxError):
     category = 'RemoteCode error'
 
+def remotecode_type(argument):
+    type_list = ['raw', 'github-permalink']
+    return 'raw' if argument.strip() not in type_list else argument.strip()
+
+def download_name_raw(name):
+    return name
+
+def download_github_permalink(name):
+    return f"{name}.json"
+
+download_name_dict = {
+    'raw': download_name_raw,
+    'github-permalink': download_github_permalink
+}
+
 class RemoteCodeDirective(LiteralInclude):
     has_content = True
     option_spec = LiteralInclude.option_spec.copy()
     option_spec['url'] = directives.path
-    option_spec['type'] = directives.path
+    option_spec['type'] = remotecode_type
 
     def run(self):
         file_type = self.options.pop('type', 'raw')
         url = self.options.pop('url', None)
-        download_path = f"{self.arguments[0]}.json" if file_type == 'github-permalink' \
-            else self.arguments[0]
+        (rel_path, abs_path) = self.env.relfn2path(self.arguments[0])
+        download_path = download_name_dict[file_type](abs_path)
         check_file_exist(download_path, url)
 
         if file_type == 'github-permalink':
@@ -35,7 +50,7 @@ class RemoteCodeDirective(LiteralInclude):
                         __(f'Invalid Github permalink {url}')
                     )
 
-                with open(self.arguments[0], "w") as output_file:
+                with open(abs_path, "w") as output_file:
                     output_file.write('\n'.join(raw))
 
             anno = url.split('/')[-1]
@@ -67,11 +82,11 @@ class RemoteCodeDirective(LiteralInclude):
                 if 'emphasize-lines' not in self.options:
                     self.options['emphasize-lines'] = ','.join([str(x) for x in highlight_lines])
 
-                if 'caption' in self.options:
-                    if self.options.get('caption', None):
-                        self.options['caption'] = f"{self.options['caption']} `🌏 <{url}>`_"
-                    else:
-                        self.options['caption'] = f"`{anno.split('#')[0].split('?')[0]} <{url}>`_"
+            if 'caption' in self.options:
+                if self.options.get('caption', None):
+                    self.options['caption'] = f"{self.options['caption']} `🌏 <{url}>`_"
+                else:
+                    self.options['caption'] = f"`{anno.split('#')[0].split('?')[0]} <{url}>`_"
                 
         return super().run()
 

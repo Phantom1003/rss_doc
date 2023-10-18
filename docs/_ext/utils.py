@@ -3,17 +3,18 @@ import requests
 from sphinx.locale import __
 from sphinx.errors import SphinxError
 
-def check_file_exist(local_path, url):
-    if not os.path.isfile(local_path):
+def check_file_exist(path, url):
+    if not os.path.isfile(path):
 
         if not url:
             raise SphinxError(
-                __(f'Failed to read {local_path}, please use `url` to specify the location')
+                __(f'Failed to read {path}, please use `url` to specify the location')
             )
 
         response = requests.get(url)
         if response.status_code == 200:
-            with open(local_path, "wb") as file:
+            print(f"Under {os. getcwd()}. Downloading {url} to {path}")
+            with open(path, "wb") as file:
                 file.write(response.content)
         else:
             raise SphinxError(
