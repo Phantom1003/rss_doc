@@ -66,9 +66,8 @@ class RemoteCodeDirective(LiteralInclude):
                     highlight_lines = [x - min(starts) + 1 for x in highlight_lines]
                 
                 self.options['emphasize-lines'] = ','.join([str(x) for x in highlight_lines])
-                # print(self.options['lines'], self.options['lineno-match'], highlight_lines, self.options['emphasize-lines'])
+        return super().run() + nodes.reference('', _('[source]'), internal=False, refuri=url)
 
-        return super().run()
 
 def setup(app):
     app.add_directive('remotecode', RemoteCodeDirective)
