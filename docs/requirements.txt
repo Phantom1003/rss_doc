@@ -1,4 +1,5 @@
 sphinx==7.2.6
 sphinxcontrib-bibtex==2.6.1
-sphinx-nefertiti==0.1.13
+sphinx-nefertiti==0.2.1
 pdf2image==1.16.3
+requests==2.25.1

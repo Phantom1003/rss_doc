@@ -23,9 +23,10 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
+    'sphinxcontrib.bibtex',
     # custom extensions
     'pdfview',
-    'sphinxcontrib.bibtex',
+    'remotecode'
 ]
 
 intersphinx_mapping = {
