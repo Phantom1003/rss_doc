@@ -19,13 +19,14 @@ class RemoteCodeDirective(LiteralInclude):
     option_spec['type'] = directives.path
 
     def run(self):
-        local_path = self.arguments[0]
-        url = self.options.pop('url', None)
-        check_file_exist(local_path, url)
-
         file_type = self.options.pop('type', 'raw')
+        url = self.options.pop('url', None)
+        download_path = f"{self.arguments[0]}.json" if file_type == 'github-permalink' \
+            else self.arguments[0]
+        check_file_exist(download_path, url)
+
         if file_type == 'github-permalink':
-            with open(local_path, "r") as json_file:
+            with open(download_path, "r") as json_file:
                 data = json.load(json_file)
                 if "payload" in data and "blob" in data["payload"] and "rawLines" in data["payload"]["blob"]:
                     raw = data["payload"]["blob"]["rawLines"]
@@ -34,10 +35,8 @@ class RemoteCodeDirective(LiteralInclude):
                         __(f'Invalid Github permalink {url}')
                     )
 
-                with open(f"{local_path}.done", "w") as output_file:
+                with open(self.arguments[0], "w") as output_file:
                     output_file.write('\n'.join(raw))
-
-            self.arguments[0] = f"{local_path}.done"
 
             anno = url.split('/')[-1]
             highlight_lines = []
@@ -65,8 +64,16 @@ class RemoteCodeDirective(LiteralInclude):
                     
                     highlight_lines = [x - min(starts) + 1 for x in highlight_lines]
                 
-                self.options['emphasize-lines'] = ','.join([str(x) for x in highlight_lines])
-        return super().run() + nodes.reference('', _('[source]'), internal=False, refuri=url)
+                if 'emphasize-lines' not in self.options:
+                    self.options['emphasize-lines'] = ','.join([str(x) for x in highlight_lines])
+
+                if 'caption' in self.options:
+                    if self.options.get('caption', None):
+                        self.options['caption'] = f"{self.options['caption']} `🌏 <{url}>`_"
+                    else:
+                        self.options['caption'] = f"`{anno.split('#')[0].split('?')[0]} <{url}>`_"
+                
+        return super().run()
 
 
 def setup(app):
