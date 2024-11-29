@@ -273,6 +273,11 @@ conf/initramfs.txt 是 kernel 携带 initramfs 的时候额外需要携带的文
 
 当 initramfs 文件系统被挂载之后，他会执行这个 initramfs.txt 中的命令，生成额外的 dev 文件夹，将 bin/busybox 链接到 init 进程，之后开始执行 init 进程进行用户态的初始化。
 
+追加文件
+-------------------
+
+在 initramfs 编译完成后，如果用户需要自己额外提供其他的文件，可以在 rootfs/buildroot_initramfs_sysroot 对应的文件夹中加入额外的文件。因为 sysroot 文件夹的权限是 root 的，所以这个时候需要用 sudo 权限才可以加入文件成功。
+
 linux
 ~~~~~~~~~~~
 
@@ -694,3 +699,164 @@ newlib 库程序执行
         ls
         rgvlt_test.ko
         #
+
+opensbi
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维护使用，应用范围更广，也许之后会全面切换到 opensbi 上。
+
+开始编译
+---------------------------
+
+.. code-block:: Makefile
+
+        opensbi_srcdir := $(srcdir)/opensbi
+        opensbi_wrkdir := $(wrkdir)/opensbi
+        fw_jump := $(opensbi_wrkdir)/platform/generic/firmware/fw_jump.elf
+
+- repo/opensbi：opensbi 的源代码
+- build/opensbi：编译 opensbi 的工作区
+- build/opensbi/platform/generic/firmware/fw_jump.elf：opensbi 的编译结果
+
+.. code-block:: Makefile
+
+        $(fw_jump): $(opensbi_srcdir) $(linux_image) $(RISCV)/bin/$(target_linux)-gcc
+                rm -rf $(opensbi_wrkdir)
+                mkdir -p $(opensbi_wrkdir)
+                $(MAKE) -C $(opensbi_srcdir) FW_PAYLOAD_PATH=$(linux_image) PLATFORM=generic O=$(opensbi_wrkdir) CROSS_COMPILE=riscv64-unknown-linux-gnu-
+
+编译 opensbi，并且打包 linux image，最后的结果保存在 fw_jump.elf 当中
+
+模拟执行
+----------------------------
+
+spike 模拟执行 make sim BL=opensbi 即可让 spike 执行 fw_jump.elf。
+
+.. code-block:: Makefile
+        ifeq ($(BL),opensbi)
+        .PHONY: sim
+        sim: $(fw_jump) $(spike)
+                $(spike) --isa=$(ISA) -p4 --kernel $(linux_image) $(fw_jump)
+
+输出结果如下，除了 bootloader 阶段，后续和 bbl 无明显差异：
+
+.. code-block:: sh
+
+        /home/zyy/extend/riscv-spike-sdk/toolchain/bin/spike --isa=rv64imafdc_zifencei_zicsr -p4 --kernel /home/zyy/extend/riscv-spike-sdk/build/linux/arch/riscv/boot/Image /home/zyy/extend/riscv-spike-sdk/build/opensbi/platform/generic/firmware/fw_jump.elf
+
+        OpenSBI v1.3
+           ____                    _____ ____ _____
+          / __ \                  / ____|  _ \_   _|
+         | |  | |_ __   ___ _ __ | (___ | |_) || |
+         | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+         | |__| | |_) |  __/ | | |____) | |_) || |_
+          \____/| .__/ \___|_| |_|_____/|____/_____|
+                | |
+                |_|
+
+        Platform Name             : ucbbar,spike-bare
+        Platform Features         : medeleg
+        Platform HART Count       : 4
+        Platform IPI Device       : aclint-mswi
+        Platform Timer Device     : aclint-mtimer @ 10000000Hz
+        Platform Console Device   : uart8250
+        Platform HSM Device       : ---
+        Platform PMU Device       : ---
+        Platform Reboot Device    : htif
+        Platform Shutdown Device  : htif
+        Platform Suspend Device   : ---
+        Platform CPPC Device      : ---
+        Firmware Base             : 0x80000000
+        Firmware Size             : 352 KB
+        Firmware RW Offset        : 0x40000
+        Firmware RW Size          : 96 KB
+        Firmware Heap Offset      : 0x4e000
+        Firmware Heap Size        : 40 KB (total), 2 KB (reserved), 9 KB (used), 28 KB (free)
+        Firmware Scratch Size     : 4096 B (total), 328 B (used), 3768 B (free)
+        Runtime SBI Version       : 2.0
+
+        Domain0 Name              : root
+        Domain0 Boot HART         : 0
+        Domain0 HARTs             : 0*,1*,2*,3*
+        Domain0 Region00          : 0x0000000010000000-0x0000000010000fff M: (I,R,W) S/U: (R,W)
+        Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+        Domain0 Region02          : 0x0000000002080000-0x00000000020bffff M: (I,R,W) S/U: ()
+        Domain0 Region03          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+        Domain0 Region04          : 0x0000000002000000-0x000000000207ffff M: (I,R,W) S/U: ()
+        Domain0 Region05          : 0x0000000000000000-0xffffffffffffffff M: () S/U: (R,W,X)
+        Domain0 Next Address      : 0x0000000080200000
+        Domain0 Next Arg1         : 0x0000000082200000
+        Domain0 Next Mode         : S-mode
+        Domain0 SysReset          : yes
+        Domain0 SysSuspend        : yes
+
+        Boot HART ID              : 0
+        Boot HART Domain          : root
+        Boot HART Priv Version    : v1.12
+        Boot HART Base ISA        : rv64imafdc
+        Boot HART ISA Extensions  : none
+        Boot HART PMP Count       : 16
+        Boot HART PMP Granularity : 4
+        Boot HART PMP Address Bits: 54
+        Boot HART MHPM Info       : 0 (0x00000000)
+        Boot HART MIDELEG         : 0x0000000000000222
+        Boot HART MEDELEG         : 0x000000000000b109
+        [    0.000000] Linux version 6.6.2-ga06ca85b22f6 (zyy@zyy-OptiPlex-7060) (riscv64-unknown-linux-gnu-gcc (gc891d8dc2) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP Thu Nov 28 13:44:33 +08 2024
+        [    0.000000] Machine model: ucbbar,spike-bare
+        [    0.000000] SBI specification v2.0 detected
+        ...
+
+        [    0.392630] NET: Registered PF_PACKET protocol family
+        [    0.398815] clk: Disabling unused clocks
+        [    0.401385] Freeing unused kernel image (initmem) memory: 8672K
+        [    0.443095] Run /init as init process
+        Saving 256 bits of non-creditable seed for next boot
+        Starting syslogd: OK
+        Starting klogd: OK
+        Running sysctl: OK
+        Starting network: OK
+
+        Welcome to Buildroot
+        buildroot login:
+
+
+磁盘制作
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+spike 执行系统程序的时候，它因为软件模拟的，可以随意的将系统软件复制到内存当中，但是硬件 FPGA 执行的时候并不可以。FPGA 执行的时候，系统软件被存在 SD 卡中，然后 FPGA 上的 core 执行固件代码，将系统文件从 SD 卡读入内存。因此我们需要为 FPGA 制作 SD 卡。
+
+首先我们将 SD 卡插入读卡器，然后将读卡器插入主机，之后我们执行 ls /dev，就可以在 /dev 中看到新的 sd 设备。这里的 sda 是主机自带的磁盘，sda1-sda9 是磁盘的各个分区。sdb 就是我们插入的 SD 卡，sdb1-sdb2 是 SD 卡的各个分区。当然也不一定就是 sdb，也可能是 sdc、sdd。
+
+.. code-block:: sh
+
+        riscv-spike-sdk$ ls /dev | grep sd
+        sda
+        sda1
+        sda2
+        sda3
+        sda7
+        sda8
+        sda9
+        sdb
+        sdb1
+        sdb2
+
+现在我们对 sdb 这个 SD 卡进行重新分区，并且对每个分区的格式进行设置。执行的命令如下：
+
+.. code-block:: sh
+        sudo sgdisk --clear \
+                --new=1:2048:67583  --change-name=1:bootloader --typecode=1:2E54B353-1271-4842-806F-E436D6AF6985 \
+                --new=2:264192:     --change-name=2:root       --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 \
+                /dev/sdb
+        sudo dd if=./build/riscv-pk/bbl.bin of=/dev/sdb1 bs=4096
+        sudo mke2fs -t ext4 /dev/sdb2
+
+1. sgdisk 指令将 SD 卡化为两个分区，指定各自的大小、磁盘分区名和类型，第一个分区是存放二进制镜像，第二个分区存在挂载的文件系统
+2. dd 指令将 bbl 对应的二进制镜像 bbl.bin 写入到 sdb 的第一个分区；之后处理器就回去第一个分区，将这个 bbl.bin 写入内存开始执行
+3. mke2fs 指令将磁盘制作为 ext4 文件系统，用于后续挂在 debian 等文件系统
+
+如果要在第二个分区挂载文件系统的话，需要两步操作：
+
+1. 在设备树的 bootargs 中加入 root=/dev/mmcblk0p2，说明根文件系统是在 mmcblk0p2 这个分区的，那么等 linux 启动之后就会根据 root 将 SD 卡第二个分区的文件系统读出来作为根文件系统。
+2. sudo mount /dev/sdb2 tmp，将 sd 卡第二个分区挂载在 tmp 文件夹上，然后将其他文件系统的内容拷贝到这个文件夹，之后 umount 挂在即可。
+
