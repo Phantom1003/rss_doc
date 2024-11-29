@@ -4,3 +4,4 @@ sphinxcontrib-bibtex==2.6.3
 sphinx-nefertiti==0.5.3
 pdf2image==1.17.0
 requests==2.32.3
+beautifulsoup4==4.12.3

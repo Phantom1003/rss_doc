@@ -90,13 +90,14 @@ This is an I-type instruction with ``rd``, ``rs1``, and ``imm12`` fields, and it
 Therefore, the definition of ``addi`` is as follows:
 
 .. remotecode:: ../_static/tmp/rv_i
-  :url: https://raw.githubusercontent.com/riscv/riscv-opcodes/19e3ddcc323b809a8b71f9fb0998320e2ba95005/rv_i
+  :url: https://github.com/riscv/riscv-opcodes/blob/19e3ddcc323b809a8b71f9fb0998320e2ba95005/rv_i#L21
   :language: text
-  :type: raw
+  :type: github-permalink
   :lineno-match:
   :lines: 20-22
-  :emphasize-lines: 2
-  :caption: RVI Format
+  :caption:
+
+Test hyperlink: `Stack Overflow home <https://stackoverflow.com/>`_.
 
 As you can see, the definition is straightforward.
 You can find more descriptions about the syntax in the official ``README``.

@@ -7,6 +7,7 @@ from sphinx.errors import SphinxError
 
 from utils import check_file_exist
 
+from bs4 import BeautifulSoup
 import json
 
 class RemoteCodeError(SphinxError):
@@ -41,9 +42,16 @@ class RemoteCodeDirective(LiteralInclude):
         check_file_exist(download_path, url)
 
         if file_type == 'github-permalink':
-            assert False, "github update their permalink API, so the type won't work anymore"
-            with open(download_path, "r") as json_file:
-                data = json.load(json_file)
+            with open(download_path, "r") as html_file:
+                json_payload = BeautifulSoup(html_file, 'html.parser').find('script', type='application/json', attrs={'data-target': 'react-app.embeddedData'})
+
+                if json_payload:
+                    data = json.loads(json_payload.string)
+                else:
+                    raise RemoteCodeError(
+                        __(f'Invalid Github permalink return {html_file}')
+                    )
+
                 if "payload" in data and "blob" in data["payload"] and "rawLines" in data["payload"]["blob"]:
                     raw = data["payload"]["blob"]["rawLines"]
                 else:
