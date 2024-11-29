@@ -121,13 +121,13 @@ riscv-gnu-toolchain 可以编译提供了两套工具链：
         target_linux  := riscv64-unknown-linux-gnu
 
         $(toolchain_dest)/bin/$(target_linux)-gcc:
-        mkdir -p $(toolchain_wrkdir)
-        $(MAKE) -C $(linux_srcdir) O=$(toolchain_wrkdir) ARCH=riscv INSTALL_HDR_PATH=$(abspath $(toolchain_srcdir)/linux-headers) headers_install
-        cd $(toolchain_wrkdir); $(toolchain_srcdir)/configure \
-                --prefix=$(toolchain_dest) \
-                --with-arch=$(ISA) \
-                --with-abi=$(ABI) 
-        $(MAKE) -C $(toolchain_wrkdir) linux
+                mkdir -p $(toolchain_wrkdir)
+                $(MAKE) -C $(linux_srcdir) O=$(toolchain_wrkdir) ARCH=riscv INSTALL_HDR_PATH=$(abspath $(toolchain_srcdir)/linux-headers) headers_install
+                cd $(toolchain_wrkdir); $(toolchain_srcdir)/configure \
+                        --prefix=$(toolchain_dest) \
+                        --with-arch=$(ISA) \
+                        --with-abi=$(ABI) 
+                $(MAKE) -C $(toolchain_wrkdir) linux
  
 编译完毕后，我们就可以在 toolchain/bin 当中看到一系列的 riscv64-unknown-linux-gnu 工具链：
 
