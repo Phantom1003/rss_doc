@@ -1,12 +1,6 @@
 sycuricon( 一 ): riscv-spike-sdk
 ========================================
 
-谨以这个系列文章，献给我们的 syscuricon 小队。
-emmm~，phantom yyds！！！！ 
-
-简介
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
-
 starship 是 sycuricon 提供的 RISCV 处理器自动化仿真、验证、综合平台，基于该平台已经实现了十余个工程项目，并发布多篇论文。
 
 starship 提供了平台的硬件实现，而 riscv-spike-sdk 为 starship 提供了配套的工具链和软件，两者相辅相成，确保平台的各个 flow 可以正确运行。
@@ -89,8 +83,11 @@ riscv-gnu-toolchain 可以编译提供了两套工具链：
 
 
 之后设置一些编译参数：
+
 - RISCV 变量是 RISCV 工具链的地址目录，这里默认是 toolchain 目录。当需要使用 RISCV 工具的时候会从这个目录开始寻找，当需要安装 RISCV 工具链的时候则会安装到这个地址。
-- ISA 变量是编译使用的指令集扩展，这里默认的是`rv64imafdc_zifencei_zicsr`。rv64 表示是 64 位的 RISCV 指令级，imafdc 分别是整数、乘除法、原子、单精度浮点、双精度浮点、压缩指令集扩展，zifencei 是屏障指令集扩展，zicsr 是特权指令集扩展。这个参数被用于编译器的生成和后续编译器的调用。该参数需要和软件执行的处理器和模拟器的 arch 相统一。
+
+- ISA 变量是编译使用的指令集扩展，这里默认的是 ``rv64imafdc_zifencei_zicsr``。rv64 表示是 64 位的 RISCV 指令级，imafdc 分别是整数、乘除法、原子、单精度浮点、双精度浮点、压缩指令集扩展，zifencei 是屏障指令集扩展，zicsr 是特权指令集扩展。这个参数被用于编译器的生成和后续编译器的调用。该参数需要和软件执行的处理器和模拟器的 arch 相统一。
+
 - ABI 是应用二进制接口，也就是读函数传参寄存器的定义，lp64 指整数和指针用 64 位整数寄存器传参，d 指浮点用双精度浮点寄存器传参。这个参数被用于编译器的生成和后续编译器的调用。该参数需要确保所有的软件相统一。
 
 .. code-block:: Makefile
@@ -120,6 +117,7 @@ riscv-gnu-toolchain 可以编译提供了两套工具链：
         $(MAKE) -C $(toolchain_wrkdir) linux
  
 编译完毕后，我们就可以在 toolchain/bin 当中看到一系列的 riscv64-unknown-linux-gnu 工具链：
+
 .. code-block:: sh
 
         riscv64-unknown-linux-gnu-addr2line

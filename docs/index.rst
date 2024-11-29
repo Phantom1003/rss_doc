@@ -23,5 +23,6 @@ Table of Contents
    :maxdepth: 3
    :numbered:
 
+   Internal/index
    Customization/index
 
