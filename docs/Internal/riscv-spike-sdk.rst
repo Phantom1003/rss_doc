@@ -35,22 +35,35 @@ starship 提供了平台的硬件实现，而 riscv-spike-sdk 为 starship 提�
 考虑到部分使用者还只是和我一样的大学生，对于计算机系统了解有限，因此在这里通过讲解 starship 系统启动的过程，来介绍 riscv-spike-sdk 各个组件的功能。
 
 starship 的 SoC 有四个启动相关的存储部件：
+
 - 启动阶段 0 的 zero stage bootloader 存放在硬件模块 boot rom 上，起始地址是 0x10000
+
 - 启动阶段 1 的 first stage bootloader 存放在硬件模块 mask rom 上，起始地址是 0x20000
+
 - 系统镜像存储在 spi 总线连接的外部 SD 卡分区内
+
 - 片外 ddr 实现的内存，起始地址是 0x80000000
 
 1. 当 starship 上电启动的时候，处理器内部的 PC 寄存器会被初始化为 0x10000，处理器开始执行 0x10000 内部的程序。这部分程序做一些简单的寄存器初始化，然后跳转到 0x20000，执行 maskrom 上的启动代码。
+
 2. maskrom 的启动代码是一个 SD 卡读驱动程序，这个程序会用 MMIO 的方式访问 SPI 总线，将 SD 卡内的镜像读出，然后写到 ddr 上，这个过程非常费时。待读取完毕后，处理器跳转到 0x80000000 开始执行系统镜像。
+
 3. 系统镜像由 bootloader、linux kernel、initramfs 三部分组成。在构造系统镜像的时候，initramfs 会被作为 linux kernel 的数据部分，一起编译得到 kernel 镜像；之后 kernel 镜像会被作为 bootloader 的数据部分，一起编译为 bootloader。所以 SD 卡内部存储的 bootloader 其实是 bootloader 的代码段、数据段，外加上 kernel 和 initramfs 二进制数据的 payload 段。
+
 4. 当系统镜像被 maskrom 加载到 memor 之后，bootloader 的代码段就位于 0x80000000 地址开始，0x80000000 地址的第一条指令就是 bootloader 的第一条指令，于是处理器开始执行 bootloader 进行物理模式的初始化，包括设置 M 态寄存器，设置地址范围保护，初始化各个外部寄存器，初始化 sbi 调用。然后 bootloader 将 payload 段的 kernel 镜像加载到内存中合适的位置，然后跳到 kernel 的起始地址开始执行。
+
 5. kernel 镜像也由 kernel 的代码段、数据段和 payload 的 initramfs 组成的。处理器执行 kernel 完成 S 态的寄存器初始化、页表设置、进程设置、网络设置、文件系统设置等等，然后将 initramfs 载入到合适的内存地址，然后进入用户态，开始执行 initramfs 中的初始化程序。
+
 6. 初始化完毕后，处理器执行 shell 程序，为操作系统和文件系统起一个简单的 shell，方便用户进行交互。
 
 此外：
+
 - bootloader 可以选择使用 opensbi 或者 riscv-pk
+
 - kernel 就是 linux kernel
+
 - 在 bootloader 和 kernel 之间可以额外加入一个 uboot
+
 - 除了 initramfs 可以额外挂载 debain、ubuntu 等文件系统，这需要在 SD 中创建额外的分区，修改系统配置。
 
 riscv-gnu-toolchain
@@ -198,10 +211,15 @@ BR2_TOOLCHAIN_EXTERNAL_HEADERS_6_4=y 定义了 buildroot 依赖的 linux 内核�
 
 
 - conf/buildroot_initramfs_config：提供的 buildroot 的配置
+
 - repo/buildroot：buildroot 的源代码
+
 - rootfs/buildroot_initramfs：buildroot 编译的工作区
+
 - rootfs/buildroot_initramfs/.config：编译 buildroot 用到的完整的 buildroot 配置
+
 - rootfs/buildroot_initramfs/image/rootfs.tar：buildroot 编译得到的 initramfs 压缩包
+
 - rootfs/buildroot_initramfs_sysroot：rootfs.tar 解压缩后的内容
 
 .. code-block:: Makefile
@@ -224,8 +242,11 @@ BR2_TOOLCHAIN_EXTERNAL_HEADERS_6_4=y 定义了 buildroot 依赖的 linux 内核�
 
 
 1. 执行 buildroot_initramfs_sysroot 项目，编译 initramfs 的 sysroot
+
 2. 执行 $(buildroot_initramfs_wrkdir)/.config，该目标将 conf/buildroot_initramfs_config 拷贝到 rootfs/buildroot_initramfs，然后执行 buildroot 的 oldconfig 项目，在 conf/buildroot_initramfs_config 的基础上生成 .config
+
 3. 执行 $(buildroot_initramfs_tar)，根据 .config 的配置，生成文件系统的 tar 压缩包，保存在 rootfs/buildroot_initramfs/images/rootfs.tar
+
 4. 执行 $(buildroot_initramfs_sysroot)，将 rootfs.tar 解压到 rootfs/buildroot_initramfs_sysroot
 
 编译结果
@@ -304,10 +325,15 @@ linux 内核是操作系统的核心部分，负责初始化系统态的各个�
 
 
 一些比较特殊的配置字段如下：
+
 - CONFIG_DEFAULT_HOSTNAME="riscv-rss"：riscv-rss 是 riscv-spike-sdk 的简称
+
 - CONFIG_BLK_DEV_INITRD=y：表示 initramfs 会被 kernel 打包作为 payload
+
 - CONFIG_HVC_RISCV_SBI=y：允许使用 hvc 功能
+
 - CONFIG_EXT4_FS=y：文件系统格式为 ext4_fs，initramfs 的格式就是对应的 ext4
+
 - CONFIG_MODULES=y：允许加载额外的内核模块，即可以执行 insmod、rmmod 等
 
 开始编译
@@ -326,10 +352,15 @@ linux 内核是操作系统的核心部分，负责初始化系统态的各个�
         linux_image := $(linux_wrkdir)/arch/riscv/boot/Image
 
 - repo/linux：为 linux 的源代码
+
 - conf/linux_defconfig：为 linux 的默认配置选项
+
 - build/linux：为编译 linux 的工作区域
+
 - build/linux/vmlinux：为 linux 编译得到的 elf 文件
+
 - build/linux/vmlinux-stripped：是 vmlinux 删去符号表等冗余信息之后的文件
+
 - build/linux/arch/riscv/boot/Image：vumlinux-stripped 生成的二进制镜像文件
 
 .. code-block:: sh
@@ -364,8 +395,11 @@ linux 内核是操作系统的核心部分，负责初始化系统态的各个�
 
 
 1. 执行 $(linux_wrkdir)/.config，将 conf/linux_defconfig 拷贝到 build/linux，然后执行 linux 的 olddefconfig 在 linux_defconfig 的基础上生成新的配置文件 .conf
+
 2. 检查 ISA 是不是包含压缩指令扩展，包含的话新增 CONFIG_RISCV_ISA_C 的配置，重新生成配置文件
+
 3. 执行 $(vmlinux) 将 linux 源码生成 vmlinux 文件和 Image 文件，并将 initramfs_sysroot 打包作为内嵌的文件系统。CONFIG_INITRAMFS_SOURCE 载入对应的 initramfs 的内容，包括 initramfs.txt 和 initramfs_sysroot。
+
 4. 执行 $(vmlinux_stripped) 生成去掉调试信息后的 vmlinux-stripped
 
 riscv-pk
@@ -386,9 +420,13 @@ riscv-pk 有两个作用，一个是配合 spike 模拟器提供一个简单的 
 
 
 - repo/riscv-pk：riscv-pk 的源代码
+
 - build/riscv-pk：编译 riscv-pk 的工作区
+
 - build/pk：充当模拟器上执行的内核，为 riscv-unknown-elf 编译的程序提供 newlib 的可执行环境
+
 - build/bbl：生成的 bootloader elf 文件，充当系统软件中的 bootloader
+
 - build/bbl.bin：bbl elf 文件对应的二进制镜像
 
 .. code-block:: Makefile
@@ -424,7 +462,9 @@ riscv-pk 有两个作用，一个是配合 spike 模拟器提供一个简单的 
 
 
 1. DTS 参数用于指定生成 bbl 时候携带的设备树文件，仿真使用 spike.dts，在 VC707 FPGA 环境执行使用 starship.dts
+
 2. 执行 $(bbl) 生成 bbl。先执行 configure，根据 with-dts 选择系统文件携带的系统设备树文件（spike.dts 或者 starship.dts），with-logo 选择系统文件附带的 logo，with-payload 选择负载的 kernel 文件（也就是前面生成的 vmlinux-stripped），host 选择系统文件的编译和运行时环境（riscv64-unknown-linux-gnu 或者 riscv64-unknown-elf）得到对应的配置文件，然后执行 make 生成 pk 和 bbl。
+
 3. 执行 $(pk) 生成 pk。host 选择使用 riscv64-uknown-elf，所以搭配 riscv64-unknown-elf 生成的可执行程序使用；prefix 选择 toolchain，所以生成的程序会被安装到 toolchain 中。
 
 logo
@@ -459,6 +499,7 @@ dts
 此外，也可以让 bootloader 在编译的时候内置平台的设备树，这个设备树会覆盖固件的设备树成为真正的设备树，供后续使用。
 
 - conf/spike.dts：spike 模拟器模拟的硬件平台的设备树，供 spike 模拟器上运行的软件使用
+
 - conf/starship.dts：starship 生成的硬件平台的设备树，供 starship 硬件平台运行的软件使用
 
 spike
@@ -476,7 +517,9 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
         spike := $(toolchain_dest)/bin/spike
 
 - repo/riscv-isa-sim：spike 的源代码
+
 - build/riscv-isa-sim：编译 spike 的工作区
+
 - toolchain/bin/spike：编译后安装的 spike 工具 
 
 .. code-block:: Makefile
@@ -492,7 +535,9 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
                 touch -c $@
 
 1. prefix 配置指定了生成的 spike 等工具安装的目录位置
+
 2. 在 build/riscv-isa-sim 执行 configure 生成配置文件和 makefile 等，执行 makefile 生成 Spike
+
 3. 执行 make install，将 spike 安装到 toolchain 目录下
 
 安装的结果如下：
@@ -512,8 +557,11 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 我们编写一个简单的 riscv 指令集的汇编程序，然后用 riscv64-unknown-elf-gcc 编译为 elf 文件，之后执行**spike testcase.elf**即可在 spike 上执行该程序。
 
 简单程序的执行机理如下，
+
 1. spike 内部会模拟一块 0x10000 开始的 bootrom 和一块 0x80000000 开始的内存
+
 2. 执行 spike testcase.elf 之后，spike 会被 testcase.elf 进行解析，首先 testcase.elf 的起始物理地址（_start 的地址）会被解析出来保存到 0x1000 的内存中，然后 elf 程序中的 program segmentation 会被加载到对应的内存当中
+
 3. 然后 spike 的 PC 初始化为 0x10000，开始执行 bootrom，访问 0x1000 得到起始地址跳入内存，然后开始执行 testcase.elf
 
 spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写来获得外部输入，或者输出字符到 stdout；不然的话 testcase.elf 执行过程中就看不到任何输出。
@@ -543,13 +591,21 @@ spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写�
         0x0000000080000000
 
 - 敲击回车可以让 spike 单步执行一条指令
+
 - 可以看到一开始的时候 pc 初始化为 0x10000，执行 bootrom 上的启动程序
+
 - reg core_id reg_name，可以查看寄存器的值。因此 spike 可以模拟多个 core，所以需要 core_id 指示是哪个处理器。
+
         - reg 0 a0，就是查看 0 号 core 的 a0 寄存器的值。
+
 - 我们解析这部分指令：
+
         1. a1 获得 0x1020 的地址，这个是处理器固件当中设备树文件所在的地址，这个地址会被传给后续的 bbl、linux 做进一步的解析
+
         2. t0 读取 0x1000 地址中存储的内容，这个就是 spike 解析 elf 之后存储的 elf 的 entry 的地址
+
         3. a0 获得 mhartid 的地址，也就是 core 的编号，不同的 core 执行后续的软件时在行为上会存在差异。（比如启动时 0 号 core 负责初始化，其他 core 死循环直到 0 号 core 初始化完毕才继续运行。）
+
         4. 跳转到 t0 指示的 entry 地址，执行内存中载入的 elf 程序
 
 执行 help 可以查看更多交互命令；如果想退出 spike，执行 q 命令即可：
@@ -589,12 +645,17 @@ spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写�
         core   0: 0x0000000080000040 (0xfc3f2223) sw      gp, -60(t5)
 
 - 对于异常等特殊事件 spike 会给出额外的提示
+
 - spike 会解析 elf 的符号表存储起来，在调试的时候遇到对应的地址会输出对应的符号，作为调试的提示
+
 - 最后可以看到 elf 写了 0x1000 地址之后程序结束，这是 spike 的一个模拟器和主机的 to_host、from_host 交互机制。在一些复杂场景中，spike 是执行在一个 host 程序上的，host 通过 to_host 接口获得 spike 的反馈，通过 from_host 接口向 spike 发送数据和命令。spike 在载入 elf 的时候会查看 elf 有没有定义 to_host 和 from_host 地址，如果定义了这两个地址范围会被用于特殊的 MMIO，spike 上执行的程序通过读写 to_host、from_host 的地址来和 host 交互。在这里，程序向 to_host 写入特殊的值（最低位是 1）来请求退出。
 
 因此 spike 上执行的程序需要满足如下几个特点：
+
 - 需要是 elf 程序
+
 - program segementation 需要有对应的物理地址，这个范围要落在 spike 的物理地址范围中
+
 - elf 如果有 host 交互的需要，需要有 to_host 和 from_host 标号指示的内存区域
 
 newlib 库程序执行
@@ -610,8 +671,11 @@ newlib 库程序执行
         }
 
 这个程序没有办法直接在 spike 上执行：
+
         - spike 上没有 printf 函数的代码实现
+
         - elf 没有和物理地址相关的载入说明
+
 但是之前编译的 pk 可以解决这个问题。pk 在 spike 上启动一个小型的操作系统，可以为 elf 提供 newlib 的调用，并且可以将 elf 载入到合适的虚拟地址范围。
 
 因此我们执行 ./toolchain/bin/spike ./build/riscv-pk/pk a.out 就可以在 spike 的 pk 操作系统上执行 a.out 的 elf 程序了。
@@ -650,6 +714,7 @@ newlib 库程序执行
         ...
 
 2. 编译需要的软件，这里直接执行 make bbl 即可，它会依次编译 buildroot、linux kernel、bbl，并且打包 spike.dts，最后得到可执行的 bbl
+
 3. 执行 make sim，也就是 spike bbl 就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
 
 .. code-block:: sh
@@ -718,7 +783,9 @@ opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维�
         fw_jump := $(opensbi_wrkdir)/platform/generic/firmware/fw_jump.elf
 
 - repo/opensbi：opensbi 的源代码
+
 - build/opensbi：编译 opensbi 的工作区
+
 - build/opensbi/platform/generic/firmware/fw_jump.elf：opensbi 的编译结果
 
 .. code-block:: Makefile
@@ -855,7 +922,9 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
         sudo mke2fs -t ext4 /dev/sdb2
 
 1. sgdisk 指令将 SD 卡化为两个分区，指定各自的大小、磁盘分区名和类型，第一个分区是存放二进制镜像，第二个分区存在挂载的文件系统
+
 2. dd 指令将 bbl 对应的二进制镜像 bbl.bin 写入到 sdb 的第一个分区；之后处理器就回去第一个分区，将这个 bbl.bin 写入内存开始执行
+
 3. mke2fs 指令将磁盘制作为 ext4 文件系统，用于后续挂在 debian 等文件系统
 
 .. code-block:: sh
@@ -892,5 +961,6 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
 如果要在第二个分区挂载文件系统的话，需要两步操作：
 
 1. 在设备树的 bootargs 中加入 root=/dev/mmcblk0p2，说明根文件系统是在 mmcblk0p2 这个分区的，那么等 linux 启动之后就会根据 root 将 SD 卡第二个分区的文件系统读出来作为根文件系统。
+
 2. sudo mount /dev/sdb2 tmp，将 sd 卡第二个分区挂载在 tmp 文件夹上，然后将其他文件系统的内容拷贝到这个文件夹，之后 umount 挂在即可。
 
