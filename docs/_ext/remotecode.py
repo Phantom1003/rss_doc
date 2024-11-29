@@ -41,6 +41,7 @@ class RemoteCodeDirective(LiteralInclude):
         check_file_exist(download_path, url)
 
         if file_type == 'github-permalink':
+            assert False, "github update their permalink API, so the type won't work anymore"
             with open(download_path, "r") as json_file:
                 data = json.load(json_file)
                 if "payload" in data and "blob" in data["payload"] and "rawLines" in data["payload"]["blob"]:
