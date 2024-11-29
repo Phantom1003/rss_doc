@@ -5,6 +5,11 @@ sycuricon( 一 ): riscv-spike-sdk
 emmm~，phantom yyds！！！！ 
 
 简介
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
+
+starship 是 sycuricon 提供的 RISCV 处理器自动化仿真、验证、综合平台，基于该平台已经实现了十余个工程项目，并发布多篇论文。
+
+starship 提供了平台的硬件实现，而 riscv-spike-sdk 为 starship 提供了配套的工具链和软件，两者相辅相成，确保平台的各个 flow 可以正确运行。
 
 目录结构如下：
 
