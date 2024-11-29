@@ -554,7 +554,7 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 执行简单程序
 -------------------------
 
-我们编写一个简单的 riscv 指令集的汇编程序，然后用 riscv64-unknown-elf-gcc 编译为 elf 文件，之后执行**spike testcase.elf**即可在 spike 上执行该程序。
+我们编写一个简单的 riscv 指令集的汇编程序，然后用 riscv64-unknown-elf-gcc 编译为 elf 文件，之后执行``spike testcase.elf``即可在 spike 上执行该程序。
 
 简单程序的执行机理如下，
 
@@ -566,7 +566,7 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 
 spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写来获得外部输入，或者输出字符到 stdout；不然的话 testcase.elf 执行过程中就看不到任何输出。
 
-为了查看 spike 内部执行的情况，或者对 spike 的执行进行断点调试，我们可以执行**spike -d testcase.elf**。-d 选项让 spike 在调试模式下运行，这个时候会有一个交互的命令行供调试者使用。此外对于一个在不断执行的程序们可以执行 ctrl+C 中断程序进入 debug 命令行交互模式。
+为了查看 spike 内部执行的情况，或者对 spike 的执行进行断点调试，我们可以执行``spike -d testcase.elf``。-d 选项让 spike 在调试模式下运行，这个时候会有一个交互的命令行供调试者使用。此外对于一个在不断执行的程序们可以执行 ctrl+C 中断程序进入 debug 命令行交互模式。
 
 .. code-block:: sh
 
@@ -594,9 +594,9 @@ spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写�
 
 - 可以看到一开始的时候 pc 初始化为 0x10000，执行 bootrom 上的启动程序
 
-- reg core_id reg_name，可以查看寄存器的值。因此 spike 可以模拟多个 core，所以需要 core_id 指示是哪个处理器。
+- ``reg core_id reg_name``，可以查看寄存器的值。因此 spike 可以模拟多个 core，所以需要 core_id 指示是哪个处理器。
 
-        - reg 0 a0，就是查看 0 号 core 的 a0 寄存器的值。
+        - ``reg 0 a0``，就是查看 0 号 core 的 a0 寄存器的值。
 
 - 我们解析这部分指令：
 
@@ -678,7 +678,7 @@ newlib 库程序执行
 
 但是之前编译的 pk 可以解决这个问题。pk 在 spike 上启动一个小型的操作系统，可以为 elf 提供 newlib 的调用，并且可以将 elf 载入到合适的虚拟地址范围。
 
-因此我们执行 ./toolchain/bin/spike ./build/riscv-pk/pk a.out 就可以在 spike 的 pk 操作系统上执行 a.out 的 elf 程序了。
+因此我们执行 ``./toolchain/bin/spike ./build/riscv-pk/pk a.out`` 就可以在 spike 的 pk 操作系统上执行 a.out 的 elf 程序了。
 
 .. code-block:: sh
 
@@ -686,13 +686,13 @@ newlib 库程序执行
         bbl loader
         hello, world!   
 
-- bbl loader是 pk 成功启动后的输出
-- hello, world! 是 a.out 顺利执行后调用 pk 的 newlib 输出的信息
+- ``bbl loader``是 pk 成功启动后的输出
+- ``hello, world!``是 a.out 顺利执行后调用 pk 的 newlib 输出的信息
 
 系统软件镜像的运行
 -----------------------
 
-1. 首先运行 spike --dum-dts 可以得到 spike 的设备树。conf/spike.dts 就是这样获得的，随着 spike 版本的升级，这个 spike 发生了变化，就可以用同样的方法升级 conf/spike.dts。
+1. 首先运行``spike --dum-dts``可以得到 spike 的设备树。conf/spike.dts 就是这样获得的，随着 spike 版本的升级，这个 spike 发生了变化，就可以用同样的方法升级 conf/spike.dts。
 
 .. code-block:: sh
 
@@ -715,7 +715,7 @@ newlib 库程序执行
 
 2. 编译需要的软件，这里直接执行 make bbl 即可，它会依次编译 buildroot、linux kernel、bbl，并且打包 spike.dts，最后得到可执行的 bbl
 
-3. 执行 make sim，也就是 spike bbl 就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
+3. 执行``make sim``，也就是``spike bbl``就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
 
 .. code-block:: sh
 
@@ -800,7 +800,7 @@ opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维�
 模拟执行
 ----------------------------
 
-spike 模拟执行 make sim BL=opensbi 即可让 spike 执行 fw_jump.elf。
+spike 模拟执行``make sim BL=opensbi``即可让 spike 执行 fw_jump.elf。
 
 .. code-block:: Makefile
         ifeq ($(BL),opensbi)
@@ -895,7 +895,7 @@ spike 模拟执行 make sim BL=opensbi 即可让 spike 执行 fw_jump.elf。
 
 spike 执行系统程序的时候，它因为软件模拟的，可以随意的将系统软件复制到内存当中，但是硬件 FPGA 执行的时候并不可以。FPGA 执行的时候，系统软件被存在 SD 卡中，然后 FPGA 上的 core 执行固件代码，将系统文件从 SD 卡读入内存。因此我们需要为 FPGA 制作 SD 卡。
 
-首先我们将 SD 卡插入读卡器，然后将读卡器插入主机，之后我们执行 ls /dev，就可以在 /dev 中看到新的 sd 设备。这里的 sda 是主机自带的磁盘，sda1-sda9 是磁盘的各个分区。sdb 就是我们插入的 SD 卡，sdb1-sdb2 是 SD 卡的各个分区。当然也不一定就是 sdb，也可能是 sdc、sdd。
+首先我们将 SD 卡插入读卡器，然后将读卡器插入主机，之后我们执行``ls /dev``，就可以在 /dev 中看到新的 sd 设备。这里的 sda 是主机自带的磁盘，sda1-sda9 是磁盘的各个分区。sdb 就是我们插入的 SD 卡，sdb1-sdb2 是 SD 卡的各个分区。当然也不一定就是 sdb，也可能是 sdc、sdd。
 
 .. code-block:: sh
 
@@ -960,7 +960,7 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
 
 如果要在第二个分区挂载文件系统的话，需要两步操作：
 
-1. 在设备树的 bootargs 中加入 root=/dev/mmcblk0p2，说明根文件系统是在 mmcblk0p2 这个分区的，那么等 linux 启动之后就会根据 root 将 SD 卡第二个分区的文件系统读出来作为根文件系统。
+1. 在设备树的 bootargs 中加入``root=/dev/mmcblk0p2``，说明根文件系统是在 mmcblk0p2 这个分区的，那么等 linux 启动之后就会根据 root 将 SD 卡第二个分区的文件系统读出来作为根文件系统。
 
-2. sudo mount /dev/sdb2 tmp，将 sd 卡第二个分区挂载在 tmp 文件夹上，然后将其他文件系统的内容拷贝到这个文件夹，之后 umount 挂在即可。
+2. ``sudo mount /dev/sdb2 tmp``，将 sd 卡第二个分区挂载在 tmp 文件夹上，然后将其他文件系统的内容拷贝到这个文件夹，之后 umount 挂在即可。
 
