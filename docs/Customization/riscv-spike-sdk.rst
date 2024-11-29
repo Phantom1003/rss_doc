@@ -855,6 +855,37 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
 2. dd 指令将 bbl 对应的二进制镜像 bbl.bin 写入到 sdb 的第一个分区；之后处理器就回去第一个分区，将这个 bbl.bin 写入内存开始执行
 3. mke2fs 指令将磁盘制作为 ext4 文件系统，用于后续挂在 debian 等文件系统
 
+.. code-block:: sh
+
+        riscv-spike-sdk$ sudo sgdisk --clear       --new=1:2048:67583  --change-name=1:bootloader --typecode=1:2E54B353-1271-4842-806F-E436D6AF6985       --new=2:264192:     --change-name=2:root       --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4       /dev/sdb
+        Setting name!
+        partNum is 0
+        Setting name!
+        partNum is 1
+        The operation has completed successfully.
+        
+        riscv-spike-sdk$ sudo dd if=./build/riscv-pk/bbl.bin of=/dev/sdb1 bs=4096
+        4361+1 records in
+        4361+1 records out
+        17865344 bytes (18 MB, 17 MiB) copied, 0.747458 s, 23.9 MB/s
+
+        riscv-spike-sdk$ sudo mke2fs -t ext4 /dev/sdb2
+        mke2fs 1.46.5 (30-Dec-2021)
+        /dev/sdb2 contains a ext4 filesystem
+                last mounted on /media/zyy/44290a65-fcf7-4bb6-ba14-e87c91385457 on Fri Nov 29 15:38:19 2024  
+        Proceed anyway? (y/N) y
+        Creating filesystem with 7758715 4k blocks and 1941504 inodes
+        Filesystem UUID: e1729867-d289-4d9c-9a82-df311ebd409e
+        Superblock backups stored on blocks:
+                32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
+                4096000
+
+        Allocating group tables: done
+        Writing inode tables: done
+        Creating journal (32768 blocks):
+        done
+        Writing superblocks and filesystem accounting information: done
+
 如果要在第二个分区挂载文件系统的话，需要两步操作：
 
 1. 在设备树的 bootargs 中加入 root=/dev/mmcblk0p2，说明根文件系统是在 mmcblk0p2 这个分区的，那么等 linux 启动之后就会根据 root 将 SD 卡第二个分区的文件系统读出来作为根文件系统。
