@@ -415,14 +415,14 @@ riscv-pk 有两个作用，一个是配合 spike 模拟器提供一个简单的 
         bbl: $(bbl)
 
 
-1. DTS 参数用于指定生成 bbl 时候携带的设备树文件，仿真使用 spike.cfg，在 VC707 FPGA 环境执行使用 starship.cfg
-2. 执行 $(bbl) 生成 bbl。先执行 configure，根据 with-dts 选择系统文件携带的系统设备树文件（spike.cfg 或者 starship.cfg），with-logo 选择系统文件附带的 logo，with-payload 选择负载的 kernel 文件（也就是前面生成的 vmlinux-stripped），host 选择系统文件的编译和运行时环境（riscv64-unknown-linux-gnu 或者 riscv64-unknown-elf）得到对应的配置文件，然后执行 make 生成 pk 和 bbl。
+1. DTS 参数用于指定生成 bbl 时候携带的设备树文件，仿真使用 spike.dts，在 VC707 FPGA 环境执行使用 starship.dts
+2. 执行 $(bbl) 生成 bbl。先执行 configure，根据 with-dts 选择系统文件携带的系统设备树文件（spike.dts 或者 starship.dts），with-logo 选择系统文件附带的 logo，with-payload 选择负载的 kernel 文件（也就是前面生成的 vmlinux-stripped），host 选择系统文件的编译和运行时环境（riscv64-unknown-linux-gnu 或者 riscv64-unknown-elf）得到对应的配置文件，然后执行 make 生成 pk 和 bbl。
 3. 执行 $(pk) 生成 pk。host 选择使用 riscv64-uknown-elf，所以搭配 riscv64-unknown-elf 生成的可执行程序使用；prefix 选择 toolchain，所以生成的程序会被安装到 toolchain 中。
 
 logo
 ~~~~~~~~~~~~~~~~
 
-我们的 logo 保存在 conf/logo.txt，这个 logo 在 bbl 启动的时候会被打印出来，作为我们的标识符。
+我们的 logo 保存在 conf/logo.txt，这个 logo 在 bbl 启动的时候会被打印出来，作为我们的标识符。RSS 是 riscv-spike-sdk 的简写。
 
 .. code-block:: text
 
@@ -441,8 +441,256 @@ logo
               | |  |        \  /  /       \  /  /   
                \|__|         \/__/         \/__/ 
      
+dts
+~~~~~~~~~~~~~~~~~~
 
+程序的正确执行需要软硬件的协同配合，这就要求软件可以知道硬件平台的信息。比如说软件要可以控制串口输出字符信息，那就需要知道串口的产品类型、MMIO 地址，这样才可以调用对应的驱动，读写争取的 MMIO 地址。
+
+如果每个硬件平台的信息都硬编码在软件中，会导致软件需要准备硬件平台定制化。为了保证软件的通用性，这些平台相关的数据被整合为一个设备树文件，由硬件平台厂商提供，存储在平台固件中。当软件启动时，他从平台固件中读取对应的设备树，然后在启动时就可以调用正确的驱动，正确 handle 各个平台硬件了。
+
+此外，也可以让 bootloader 在编译的时候内置平台的设备树，这个设备树会覆盖固件的设备树成为真正的设备树，供后续使用。
+
+- conf/spike.dts：spike 模拟器模拟的硬件平台的设备树，供 spike 模拟器上运行的软件使用
+- conf/starship.dts：starship 生成的硬件平台的设备树，供 starship 硬件平台运行的软件使用
 
 spike
 ~~~~~~~~~~~~~~~~~~
 
+spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、简单设备的 RISCV 处理器平台，然后执行 riscv 程序。
+
+开始编译
+-------------------
+
+.. code-block:: Makefile
+
+        spike_srcdir := $(srcdir)/riscv-isa-sim
+        spike_wrkdir := $(wrkdir)/riscv-isa-sim
+        spike := $(toolchain_dest)/bin/spike
+
+- repo/riscv-isa-sim：spike 的源代码
+- build/riscv-isa-sim：编译 spike 的工作区
+- toolchain/bin/spike：编译后安装的 spike 工具 
+
+.. code-block:: Makefile
+
+        $(spike): $(spike_srcdir)
+                rm -rf $(spike_wrkdir)
+                mkdir -p $(spike_wrkdir)
+                mkdir -p $(dir $@)
+                cd $(spike_wrkdir) && $</configure \
+                        --prefix=$(dir $(abspath $(dir $@))) 
+                $(MAKE) -C $(spike_wrkdir)
+                $(MAKE) -C $(spike_wrkdir) install
+                touch -c $@
+
+1. prefix 配置指定了生成的 spike 等工具安装的目录位置
+2. 在 build/riscv-isa-sim 执行 configure 生成配置文件和 makefile 等，执行 makefile 生成 Spike
+3. 执行 make install，将 spike 安装到 toolchain 目录下
+
+安装的结果如下：
+
+.. code-block:: sh
+
+        riscv-spike-sdk/toolchain/bin$ ls | grep spike
+        spike
+        spike-dasm
+        spike-log-parser
+        termios-xspike
+        xspike
+
+执行简单程序
+-------------------------
+
+我们编写一个简单的 riscv 指令集的汇编程序，然后用 riscv64-unknown-elf-gcc 编译为 elf 文件，之后执行**spike testcase.elf**即可在 spike 上执行该程序。
+
+简单程序的执行机理如下，
+1. spike 内部会模拟一块 0x10000 开始的 bootrom 和一块 0x80000000 开始的内存
+2. 执行 spike testcase.elf 之后，spike 会被 testcase.elf 进行解析，首先 testcase.elf 的起始物理地址（_start 的地址）会被解析出来保存到 0x1000 的内存中，然后 elf 程序中的 program segmentation 会被加载到对应的内存当中
+3. 然后 spike 的 PC 初始化为 0x10000，开始执行 bootrom，访问 0x1000 得到起始地址跳入内存，然后开始执行 testcase.elf
+
+spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写来获得外部输入，或者输出字符到 stdout；不然的话 testcase.elf 执行过程中就看不到任何输出。
+
+为了查看 spike 内部执行的情况，或者对 spike 的执行进行断点调试，我们可以执行**spike -d testcase.elf**。-d 选项让 spike 在调试模式下运行，这个时候会有一个交互的命令行供调试者使用。此外对于一个在不断执行的程序们可以执行 ctrl+C 中断程序进入 debug 命令行交互模式。
+
+.. code-block:: sh
+
+        riscv-spike-sdk$ ./toolchain/bin/spike -d starship-dummy-testcase 
+        (spike) 
+        core   0: 0x0000000000001000 (0x00000297) auipc   t0, 0x0
+        (spike)
+        core   0: 0x0000000000001004 (0x02028593) addi    a1, t0, 32
+        (spike)
+        core   0: 0x0000000000001008 (0xf1402573) csrr    a0, mhartid
+        (spike) reg 0 t0
+        0x0000000000001000
+        (spike) reg 0 a1
+        0x0000000000001020
+        (spike) reg 0 a0
+        0x0000000000000000
+        (spike)
+        core   0: 0x000000000000100c (0x0182b283) ld      t0, 24(t0)
+        (spike)
+        core   0: 0x0000000000001010 (0x00028067) jr      t0
+        (spike) reg 0 t0  
+        0x0000000080000000
+
+- 敲击回车可以让 spike 单步执行一条指令
+- 可以看到一开始的时候 pc 初始化为 0x10000，执行 bootrom 上的启动程序
+- reg core_id reg_name，可以查看寄存器的值。因此 spike 可以模拟多个 core，所以需要 core_id 指示是哪个处理器。
+        - reg 0 a0，就是查看 0 号 core 的 a0 寄存器的值。
+- 我们解析这部分指令：
+        1. a1 获得 0x1020 的地址，这个是处理器固件当中设备树文件所在的地址，这个地址会被传给后续的 bbl、linux 做进一步的解析
+        2. t0 读取 0x1000 地址中存储的内容，这个就是 spike 解析 elf 之后存储的 elf 的 entry 的地址
+        3. a0 获得 mhartid 的地址，也就是 core 的编号，不同的 core 执行后续的软件时在行为上会存在差异。（比如启动时 0 号 core 负责初始化，其他 core 死循环直到 0 号 core 初始化完毕才继续运行。）
+        4. 跳转到 t0 指示的 entry 地址，执行内存中载入的 elf 程序
+
+执行 help 可以查看更多交互命令；如果想退出 spike，执行 q 命令即可：
+
+.. code-block:: sh
+
+        (spike) help
+        Interactive commands:
+        reg <core> [reg]                # Display [reg] (all if omitted) in <core>
+        freg <core> <reg>               # Display float <reg> in <core> as hex
+        pc <core>                       # Show current PC in <core>
+        priv <core>                     # Show current privilege level in <core>
+        mem [core] <hex addr>           # Show contents of virtual memory <hex addr> in [core] (physical memory <hex addr> if omitted)
+        str [core] <hex addr>           # Show NUL-terminated C string at virtual address <hex addr> in [core] (physical address <hex addr> if omitted)
+        dump                            # Dump physical memory to binary files
+        dump_all                        # Dump physical memory to hex and dump regs info to inst
+        ...
+
+之后我们继续执行，最后的输出如下：
+
+.. code-block:: sh
+
+        (spike) 
+        core   0: 0x00000000800001a0 (0x00000073) ecall
+        core   0: exception trap_user_ecall, epc 0x00000000800001a0
+        (spike) 
+        core   0: >>>>  trap_vector
+        core   0: 0x0000000080000004 (0x34202f73) csrr    t5, mcause
+        (spike) 
+        core   0: 0x0000000080000008 (0x00800f93) li      t6, 8
+        (spike) 
+        core   0: 0x000000008000000c (0x03ff0863) beq     t5, t6, pc + 48
+        (spike)
+        core   0: >>>>  write_tohost
+        core   0: 0x000000008000003c (0x00001f17) auipc   t5, 0x1
+        (spike) 
+        core   0: 0x0000000080000040 (0xfc3f2223) sw      gp, -60(t5)
+
+- 对于异常等特殊事件 spike 会给出额外的提示
+- spike 会解析 elf 的符号表存储起来，在调试的时候遇到对应的地址会输出对应的符号，作为调试的提示
+- 最后可以看到 elf 写了 0x1000 地址之后程序结束，这是 spike 的一个模拟器和主机的 to_host、from_host 交互机制。在一些复杂场景中，spike 是执行在一个 host 程序上的，host 通过 to_host 接口获得 spike 的反馈，通过 from_host 接口向 spike 发送数据和命令。spike 在载入 elf 的时候会查看 elf 有没有定义 to_host 和 from_host 地址，如果定义了这两个地址范围会被用于特殊的 MMIO，spike 上执行的程序通过读写 to_host、from_host 的地址来和 host 交互。在这里，程序向 to_host 写入特殊的值（最低位是 1）来请求退出。
+
+因此 spike 上执行的程序需要满足如下几个特点：
+- 需要是 elf 程序
+- program segementation 需要有对应的物理地址，这个范围要落在 spike 的物理地址范围中
+- elf 如果有 host 交互的需要，需要有 to_host 和 from_host 标号指示的内存区域
+
+newlib 库程序执行
+------------------------------
+
+如果我们希望 elf 可以执行更复杂的功能，比如读写 spike 的串口 MMIO 进行 terminal 的输入输出，这个时候就需要在编译的时候链接运行时库。我们可以编写如下的 C 程序，然后用 riscv64-unknown-elf-gcc 编译得到 elf 文件。
+
+.. code-block:: C
+
+        #include<stdio.h>
+        int main(){
+                printf("hello, world!\n");
+        }
+
+这个程序没有办法直接在 spike 上执行：
+        - spike 上没有 printf 函数的代码实现
+        - elf 没有和物理地址相关的载入说明
+但是之前编译的 pk 可以解决这个问题。pk 在 spike 上启动一个小型的操作系统，可以为 elf 提供 newlib 的调用，并且可以将 elf 载入到合适的虚拟地址范围。
+
+因此我们执行 ./toolchain/bin/spike ./build/riscv-pk/pk a.out 就可以在 spike 的 pk 操作系统上执行 a.out 的 elf 程序了。
+
+.. code-block:: sh
+
+        riscv-spike-sdk$ ./toolchain/bin/spike ./build/riscv-pk/pk a.out 
+        bbl loader
+        hello, world!   
+
+- bbl loader是 pk 成功启动后的输出
+- hello, world! 是 a.out 顺利执行后调用 pk 的 newlib 输出的信息
+
+系统软件镜像的运行
+-----------------------
+
+1. 首先运行 spike --dum-dts 可以得到 spike 的设备树。conf/spike.dts 就是这样获得的，随着 spike 版本的升级，这个 spike 发生了变化，就可以用同样的方法升级 conf/spike.dts。
+
+.. code-block:: sh
+
+        ./toolchain/bin/spike --dump-dts starship-dummy-testcase
+        /dts-v1/;
+
+        / {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        compatible = "ucbbar,spike-bare-dev";
+        model = "ucbbar,spike-bare";
+        chosen {
+        stdout-path = &SERIAL0;
+        bootargs = "console=ttyS0 earlycon";
+        };
+        cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        ...
+
+2. 编译需要的软件，这里直接执行 make bbl 即可，它会依次编译 buildroot、linux kernel、bbl，并且打包 spike.dts，最后得到可执行的 bbl
+3. 执行 make sim，也就是 spike bbl 就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
+
+.. code-block:: sh
+
+        riscv-spike-sdk$ make sim
+        /home/zyy/extend/riscv-spike-sdk/toolchain/bin/spike --isa=rv64imafdc_zifencei_zicsr_zicntr_zihpm /home/zyy/extend/riscv-spike-sdk/build/riscv-pk/bbl
+        bbl loader
+
+
+                        RISC-V Spike Simulator SDK
+
+                ___           ___           ___     
+               /\  \         /\  \         /\  \    
+              /  \  \       /  \  \       /  \  \   
+             / /\ \  \     / /\ \  \     / /\ \  \  
+            /  \~\ \  \   _\ \~\ \  \   _\ \~\ \  \ 
+           / /\ \ \ \__\ /\ \ \ \ \__\ /\ \ \ \ \__\
+           \/_|  \/ /  / \ \ \ \ \/__/ \ \ \ \ \/__/
+              | |  /  /   \ \ \ \__\    \ \ \ \__\  
+              | |\/__/     \ \/ /  /     \ \/ /  /  
+              | |  |        \  /  /       \  /  /   
+               \|__|         \/__/         \/__/ 
+     
+
+
+        [    0.000000] Linux version 6.6.2-ga06ca85b22f6 (zyy@zyy-OptiPlex-7060) (riscv64-unknown-linux-gnu-gcc (gc891d8dc2) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP Thu Nov 28 13:44:33 +08 2024
+        [    0.000000] Machine model: ucbbar,spike-bare
+        [    0.000000] SBI specification v0.1 detected
+        [    0.000000] earlycon: sbi0 at I/O port 0x0 (options '')
+        [    0.000000] printk: bootconsole [sbi0] enabled
+        [    0.000000] efi: UEFI not found.
+        ...
+
+
+        [    0.156925] 10000000.ns16550: ttyS0 at MMIO 0x10000000 (irq = 12, base_baud = 625000) is a 16550A
+        [    0.158655] NET: Registered PF_PACKET protocol family
+        [    0.164865] clk: Disabling unused clocks
+        [    0.167220] Freeing unused kernel image (initmem) memory: 8672K
+        [    0.174220] Run /init as init process
+        Saving 256 bits of non-creditable seed for next boot
+        Starting syslogd: OK
+        Starting klogd: OK
+        Running sysctl: OK
+        Starting network: OK
+
+        Welcome to Buildroot
+        buildroot login: root
+        root
+        # ls
+        ls
+        rgvlt_test.ko
+        #
