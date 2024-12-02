@@ -23,11 +23,14 @@ starship 提供了平台的硬件实现，而 riscv-spike-sdk 为 starship 提�
     │   ├── opensbi             # bootloader + sbi
     │   ├── riscv-gnu-toolchain # riscv 工具链，如 gcc、gdb 等
     │   ├── riscv-isa-sim       # riscv 仿真模拟器
+    |   ├── riscv-openocd       # riscv 芯片外接调试器
     │   └── riscv-pk            # bootloader + sbi
     ├── rootfs                  # buidlroot 编译和存放编译结果的目录
     └── toolchain       # 工具链，编译生成的工具链会被存在这里
 
 想要快速了解本工程的朋友可以阅读 riscv-spike-sdk 的 README，然后一键运行 quickstart.sh。这个脚本会下载所有必须的子模块，然后编译必须的工具链、模拟器、软件镜像，然后在模拟器上启动一个 linux kernel。
+
+本文将对 riscv-spike-sdk 的各个组件（riscv-openocd 在调试一文介绍）进行介绍，并介绍如果构造系统软件、软件模拟执行等。
 
 系统启动
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -895,7 +898,21 @@ spike 模拟执行``make sim BL=opensbi``即可让 spike 执行 fw_jump.elf。
 
 spike 执行系统程序的时候，它因为软件模拟的，可以随意的将系统软件复制到内存当中，但是硬件 FPGA 执行的时候并不可以。FPGA 执行的时候，系统软件被存在 SD 卡中，然后 FPGA 上的 core 执行固件代码，将系统文件从 SD 卡读入内存。因此我们需要为 FPGA 制作 SD 卡。
 
-首先我们将 SD 卡插入读卡器，然后将读卡器插入主机，之后我们执行``ls /dev``，就可以在 /dev 中看到新的 sd 设备。这里的 sda 是主机自带的磁盘，sda1-sda9 是磁盘的各个分区。sdb 就是我们插入的 SD 卡，sdb1-sdb2 是 SD 卡的各个分区。当然也不一定就是 sdb，也可能是 sdc、sdd。
+首先我们将 SD 卡插入读卡器，然后将读卡器插入主机，物理步骤如下图所示。
+
+.. table:: SD 卡读卡器使用
+
+   +-----------------------------------------+-------------------------------------+
+   | image                                   | step                                |
+   +=========================================+=====================================+
+   | .. image:: ../_img/sd_card_reader.jpg   | insert SD card into SD card reader  |
+   |    :scale: 20%                          |                                     |
+   +-----------------------------------------+-------------------------------------+
+   | .. image:: ../_img/sd_card_writer.jpg   | insert SD card reader into USB port |
+   |    :scale: 20%                          |                                     |
+   +-----------------------------------------+-------------------------------------+
+
+之后我们执行``ls /dev``，就可以在 /dev 中看到新的 sd 设备。这里的 sda 是主机自带的磁盘，sda1-sda9 是磁盘的各个分区。sdb 就是我们插入的 SD 卡，sdb1-sdb2 是 SD 卡的各个分区。当然也不一定就是 sdb，也可能是 sdc、sdd。
 
 .. code-block:: sh
 
@@ -914,6 +931,7 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
 现在我们对 sdb 这个 SD 卡进行重新分区，并且对每个分区的格式进行设置。执行的命令如下：
 
 .. code-block:: sh
+
         sudo sgdisk --clear \
                 --new=1:2048:67583  --change-name=1:bootloader --typecode=1:2E54B353-1271-4842-806F-E436D6AF6985 \
                 --new=2:264192:     --change-name=2:root       --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 \
