@@ -1,4 +1,4 @@
-sycuricon( 二 ): starship
+sycuricon( 二 ): starship 综合
 ========================================
 
 starship 是 riscv-spike-sdk 的姊妹 repo，提供了 riscv 仿真、验证、综合平台的硬件部分。
@@ -31,15 +31,10 @@ starship 的目录结构如下：
 
 想要快速了解工程各个 flow，生成 VC707 bitstream 下板验证的同学可以直接阅读 README.md 开始综合。
 
-本文我们将对 starship 的各个部件进行介绍，并对仿真、综合的 flow 进行讲解。
-
-综合下板
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-我们首先介绍综合下板的流程。这个过程包括内核硬件代码的生成、固件软件的生成、外围硬件的生成、vivado 工程创建和综合等等。
+本文我们将首先介绍 starship 的综合下板的流程。这个过程包括内核硬件代码的生成、固件软件的生成、外围硬件的生成、vivado 工程创建和综合等等。
 
 流程简介
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. 首先设置需要生成的 verilog 的配置，starship 支持 rocket-chip、boom、cva6 等 core 的生成
 
@@ -56,7 +51,7 @@ starship 的目录结构如下：
 7. vivado 编译得到最后的 bitstream
 
 一些初始配置
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 首先我们需要设置 RISCV 变量，定义编译使用的 RISCV 工具链的地址，也就是 riscv-spike-sdk 的 toolchain 的地址。
 
@@ -73,7 +68,7 @@ starship 的目录结构如下：
     endif
 
 内核配置选择
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 修改 conf/build.mk 当中的 STARSHIP_CORE 等参数。conf/build.mk 会被 Makefile 包含，这些配置参数会被用于 Makefile 后期的内核代码生成等。
 
@@ -93,7 +88,7 @@ starship 的目录结构如下：
 ``starship.fpga.TestHarness`` 等被定义在 repo/startship 当中。虽然 rocket 的代码来自 rocket-chip、rocket-chip-blocks、rocket-chip-fpga-shells，但是我们需要额外的 chisel 代码将这些模块组装统摄起来，这部分代码被写在 repo/starsthip 当中。分别位于 repo/starship/src/main/scala/fpga 的 Configs.scala 和 VC707.scala 当中。
 
 应用 rocket-chip-fpga-shells 的补丁
------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 在执行后续的代码生成之前，我们需要对 rocket-chip-fpga-shells 进行一些修改。
 
@@ -111,10 +106,15 @@ patch 的目录结构和文件作用描述如下：
 我们对 rocket-chip-fpga-shells 的一些补丁功能进行简单的介绍：
 
 * 1.patch：chisel 的黑箱模块允许 chisel class 内部直接用 verilog 模块替换实现，但是现在的 chisel 版本不提供黑箱模块的路径位置，因此该修改在模块内部加入 ``addResource("path name")`` 来提供模块 verilog 模块的路径位置。
+
 * 2.patch：chisel 的 ddr 模块连接和顶层的 reset 存在兼容性问题，在这里予以修复
+
 * 3.patch：对于 tcl 脚本中不适用的 pci 时钟和 jtag 始终进行注释
+
 * 4.patch：对于 xdc 中不使用的 pci 引脚进行注释
+
 * 5.patch：xilinxvc707mig 存在重名问题，这里予以更正
+
 * 6.patch：jtag 模块的引脚存在问题，这里将引脚替换为 gpio 引脚
 
 此外还有一个小细节，chisel 对一个 project 进行编译的时候，对于文件的目录结构有要求。src/main/scala 存放需要的 scala 文件，src/main/resource 存放 scala 中的 addResource 需要的文件。但是在 rockect-chip-fpga-shells 中，被以来的 resource 文件其实在 xilinx 文件夹中，因此需要在 resource 中构建对于 xilinx 的软链接。
@@ -125,10 +125,10 @@ patch 的目录结构和文件作用描述如下：
     ln -s ../../../xilinx xilinx 
 
 Verilog 编译
-----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 配置简介
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------
 
 首先我们来看生成 verilog 的时候使用的配置。
 
@@ -147,21 +147,29 @@ Verilog 编译
     ROCKET_SRCS     := $(shell find $(TOP) -name "*.scala")
 
 * ROCKET_TOP：最终要生成顶层模块 starship.fpga.TestHarness 
+
 * ROCKET_CONF：生成 rocket 使用的配置 starship.WithRocketCore, starship.fpga.StarshipFPGAConfig, starship.With100MHz
+
 * ROCKET_SRC：源代码目录 repo/rocket-chip
+
 * ROCKET_BUILD：变异的工作目录 build/rockect-chip
+
 * ROCKET_SRCS：需要编译的源代码，仓库中所有的 scala 文件（当然，绝大多数无关的代码不会真的被编译）
 
 到目前为止我们 chisel 生成依赖五个配置，之后根据这五个配置进行 verilog 生成。
 
 * starship.WithRocketCore：定义 core 的类型
+
 * starship.With100MHz：定义 core 的频率
+
 * starship.fpga.StarshipFPGAConfig：硬件配置对应的包
+
 * starship.fpga.StarshipFPGATop：硬件平台对应的包
+
 * starship.fpga.StarshipFPGATestHarness：硬件整体对应的包
 
 verilog 生成流程-代码部分
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------
 
 直接运行 ``make verilog`` 就可以编译得到需要的 verilog。如果对于实现原理没有兴趣，可以直接略过后续的内容。
 
@@ -192,8 +200,11 @@ verilog 生成流程-代码部分
 这部分 target 调用 sbt 编译 rocket-chip 相关的源代码，生成 testHarness 相关的 fir 的中间代码，得到四个重要的中间文件：
 
 * Rocket.StarshipFPGATop.StarshipFPGAConfig.anno.json：每个 class 生成过程中的额外 annonation 内容，用于后期进一步生成 Verilog
+
 * Rocket.StarshipFPGATop.StarshipFPGAConfig.dts：生成的设备树，用于后续生成固件和系统软件
+
 * Rocket.StarshipFPGATop.StarshipFPGAConfig.rom.conf：生成 Maskrom 的 memory 配置
+
 * Rocket.StarshipFPGATop.StarshipFPGAConfig.fir：testHarness 的中间代码表示，chisel 先生成 fir，之后 fir 再生成 verilog 
 
 之后执行 target 得到 top 和 testHarness 的 verilog，分别生成 top 和 testHarness 的 verilog 代码，并且生成其他一系列的代码：
@@ -221,36 +232,49 @@ verilog 生成流程-代码部分
 最后生成的重要代码，我们部分介绍如下：
 
 * testharness 和 top 相关的内存配置文件 conf：
-
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.testharness.conf
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.top.conf
-
-* testharness 和 top 的中间结果和源代码，包括依赖的文件列表 f、中间代码表示 fir、寄存器序列 reglist、最终结果：
-
-  * StarshipFPGATop.fir
-  * StarshipFPGATop.reglist
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.top.f
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.top.v
-  * TestHarness.fir
-  * TestHarness.reglist
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.testharness.f
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.testharness.v
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.testharness.conf
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.top.conf
+    
+* testharness 和 top 的中间结果和源代码，包括依赖的文件列表 f、中间代码表示 fir、寄存器序列 reglist、最终结果 v
+    
+    * StarshipFPGATop.fir
+    
+    * StarshipFPGATop.reglist
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.top.f
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.top.v
+    
+    * TestHarness.fir
+    
+    * TestHarness.reglist
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.testharness.f
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.testharness.v
 
 * blockbox 引入的额外代码，被 AddResource 引入：
-
-  * plusarg_reader.v
-  * sdio.v
-  * vc707reset.v
+    
+    * plusarg_reader.v
+    
+    * sdio.v
+    
+    * vc707reset.v
 
 * vivado 的编译脚本、时序约束、引脚约束：
 
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.old-shell.vivado.tcl
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707mig1gb.vivado.tcl
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm1.vivado.tcl
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm2.vivado.tcl
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.old-shell.vivado.tcl
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707mig1gb.vivado.tcl
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm1.vivado.tcl
+    
+    * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm2.vivado.tcl
 
 starship 代码简析
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 我们现在观察 starship 的源代码，src/main/scala/Configs.scala 的代码如下，定义了 Starship 最基本的平台配置。
 
@@ -303,10 +327,13 @@ starship.With100MHz 继承自 WithFrequency(100)，说明处理器的频率被�
 
 starship.StarshipBaseConfig 定义了 starship 的基本配置：
 
-* WithExtMemSize(0x80000000L)：外部内存的内存大小是 0x80000000，这决定了 core 面向 memory 的总线大小
-* WithNExtTopInterrupts(0)：没有外部中断
-* WithDTS("zjv,starship", Nil)：定义设备树的名称，决定了生成的设备树的名称
-* BootROMLocated(x)：这里定义了 BootRom 的起始地址是 0x10000，进而影响设备树的生成和总线的生成；其次这里定义了一些 cmdline 脚本，该脚本执行 ``make -C firmware/zsbl`` 生成对应的 BootRom 固件镜像 build/firmware/zsbl/bootrom.img，然后 BootRom 用该内容作为固件内容
+    * WithExtMemSize(0x80000000L)：外部内存的内存大小是 0x80000000，这决定了 core 面向 memory 的总线大小
+    
+    * WithNExtTopInterrupts(0)：没有外部中断
+    
+    * WithDTS("zjv,starship", Nil)：定义设备树的名称，决定了生成的设备树的名称
+
+    * BootROMLocated(x)：这里定义了 BootRom 的起始地址是 0x10000，进而影响设备树的生成和总线的生成；其次这里定义了一些 cmdline 脚本，该脚本执行 ``make -C firmware/zsbl`` 生成对应的 BootRom 固件镜像 build/firmware/zsbl/bootrom.img，然后 BootRom 用该内容作为固件内容
 
 src/main/scala/top.scala 定义了最基本的平台实现，如 StarshipSystem 包含两个固件内存 bootRom 和 maskRom。
 
@@ -432,7 +459,7 @@ TestHarness 扩展 rocket-chip-fpga-shells 的 VC707 FPGA 的连接层，然后�
 
 
 zsbl 的生成
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------
 
 BootRom 一般是 rocket-chip 自带的固件模块，实际上也可以不要这个模块，需要重新定位 ResetVector，还是比较麻烦的。我们来看 starship 的 Config.scala 可以看到这里执行 ``make -C firmware/zsbl ROOT_DIR=${path} img`` 命令生成 zsbl 的固件镜像，然后将镜像文件 ``build/firmware/zsbl/bootrom.img`` 的内容载入到 bootrom 中。
 
@@ -451,10 +478,13 @@ BootRom 一般是 rocket-chip 自带的固件模块，实际上也可以不要�
 
 firmware/zsbl/bootrom.S 文件生成最后的 bootrom.img，其内容非常简单：
 
-* 关闭 rocket 中的 0x7c1 custom 寄存器（这是 rockect 当中作为 custom csr 示例的寄存器，因为我们用不到就在启动的时候关闭了）
-* 将 cpu 的 id 载入 a0 寄存器
-* 将设备树的地址载入 a1 寄存器，因为这个功能在我们的设计中交给了 fsbl，所以只是简单的传递一个 0
-* 跳到 0x20000，开始执行 fsbl 的代码
+    * 关闭 rocket 中的 0x7c1 custom 寄存器（这是 rockect 当中作为 custom csr 示例的寄存器，因为我们用不到就在启动的时候关闭了）
+    
+    * 将 cpu 的 id 载入 a0 寄存器
+
+    * 将设备树的地址载入 a1 寄存器，因为这个功能在我们的设计中交给了 fsbl，所以只是简单的传递一个 0
+
+    * 跳到 0x20000，开始执行 fsbl 的代码
 
 我们可以看到这个功能和 spike 的 0x10000 的启动固件非常相似，他们在设计上是同宗同源的。
 
@@ -497,7 +527,7 @@ firmware/zsbl/bootrom.S 文件生成最后的 bootrom.img，其内容非常简�
 * 在后端综合上：因为 TLROM 是简单的晶体管组成的，因此简单的流片技术路线上就可以流片成功，确保了好的兼容性，而其他 memory 也许会因为没有合适的 IP 或者集成技术而流产
 
 verilog 生成流程-内存部分
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 上一阶段，我们生成了 verilog 的代码和各部分 memory 的配置，这一阶段，我们根据 memory 的配置生成对应的 memory 模块，并且生成每个模块对应的镜像文件。
 
@@ -567,12 +597,15 @@ verilog 生成流程-内存部分
 这个阶段一共执行了四个部分：
 
 * $(ROCKET_INCLUDE)：整合 Rocket.StarshipFPGATop.StarshipFPGAConfig.top.f 和 Rocket.StarshipFPGATop.StarshipFPGAConfig.testharness.f 生成最终的 Rocket.StarshipFPGATop.StarshipFPGAConfig.f，该文件记录本次生成依赖的所有文件
+
 * $(ROCKET_TOP_SRAM)：vlsi_rom_gen 根据 Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.top.conf 生成对应的 Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.top.v，主要是 core 内部的各个 cache
+
 * $(ROCKET_TH_SRAM)：vlsi_rom_gen 根据 Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.testharness.conf 生成对应的 Rocket.StarshipFPGATop.StarshipFPGAConfig.sram.testharness.v
+
 * $(ROCKET_ROM)：将 fsbl 生成代码，将 dts 作为 payload 生成内存 hex，然后 vlsi_rom_gen 根据 Rocket.StarshipFPGATop.StarshipFPGAConfig.rom.conf 生成 Rocket.StarshipFPGATop.StarshipFPGAConfig.rom.v，实现 MaskROM 模块，该模块内置的 readmemh 函数会将 hex 载入 memory 的
 
 fsbl 的生成
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------
 
 $(ROCKET_ROM) target 执行 ``make -C firmware/fsbl PBUS_CLK=100000000 ROOT_DIR=$(TOP) DTS=conf/starship.dts hex``，编译对应的镜像文件。
 
@@ -703,7 +736,7 @@ smp_pause 和 smp_resume 的执行过程大致如下：
     #define PAYLOAD_SIZE    (24 << 11)
 
 vivado 综合
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 首先需要安装 vivado。然后执行 ``make bitstream`` 就可以根据 tcl 的命令，构造 project，并将 verilog 编译为 bitstream。
 
@@ -711,17 +744,23 @@ FPGA 板卡的类型参见 build.mk 中的 STARSHIP_BOARD 变量，这里选择�
 
 之后 vivado 执行 tcl 脚本，对需要的 verilog 代码和 xdc 引脚约束进行综合，参数参见如下：
 
-* -source：repo/rocket-chip-fpga-shells/xilinx/common/tcl/vivado.tcl 为执行的编译脚本
-* -F：build/rocket-chip/Rocket.StarshipSimTop.StarshipSimDebugConfig.f 为所有需要被综合的 verilog 源代码
-* -top-module：TestHarness 模块作为顶层模块
-* -ip-vivado-tcls：所有 .vivado.tcl 结尾的 tcl 脚本，包括：
+    * -source：repo/rocket-chip-fpga-shells/xilinx/common/tcl/vivado.tcl 为执行的编译脚本
 
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707mig1gb.vivado.tcl
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm1.vivado.tcl
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm2.vivado.tcl
-  * Rocket.StarshipFPGATop.StarshipFPGAConfig.old-shell.vivado.tcl
+    * -F：build/rocket-chip/Rocket.StarshipSimTop.StarshipSimDebugConfig.f 为所有需要被综合的 verilog 源代码
 
-* -board：VC707 为板子型号
+    * -top-module：TestHarness 模块作为顶层模块
+
+    * -ip-vivado-tcls：所有 .vivado.tcl 结尾的 tcl 脚本，包括：
+
+        * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707mig1gb.vivado.tcl
+
+        * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm1.vivado.tcl
+
+        * Rocket.StarshipFPGATop.StarshipFPGAConfig.vc707_sys_clock_mmcm2.vivado.tcl
+
+        * Rocket.StarshipFPGATop.StarshipFPGAConfig.old-shell.vivado.tcl
+    
+    * -board：VC707 为板子型号
 
 .. code-block:: Makefile
 
@@ -756,7 +795,7 @@ FPGA 板卡的类型参见 build.mk 中的 STARSHIP_BOARD 变量，这里选择�
 最后的 vivado 工程见 build/vivado，其中 bitstream 文件在 build/vivado/obj/TestHarness.bit
 
 下板连接
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 现在我们进行下板测试，首先对 VC707 板子进行连接。这里我们介绍一下连接方式和 VC707 的一些使用方式。
 
@@ -773,6 +812,7 @@ FPGA 板卡的类型参见 build.mk 中的 STARSHIP_BOARD 变量，这里选择�
 * 按压 reset 按钮可以对 FPGA 中的寄存器进行复位
 
 .. image:: ../_img/vc707_linker.jpg
+    :scale: 100%
     :alt: connection of VC707
     :align: center
 
@@ -951,7 +991,7 @@ FPGA 板卡的类型参见 build.mk 中的 STARSHIP_BOARD 变量，这里选择�
 其他的只能见招拆招了。
 
 设备树的构建和修复
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 starship 的软件的设备树，我们直接使用 conf/starship.dts，我们现在介绍一下这个 dts 的组成和修改，为后期的维护和迭代提供指导和依据。
 
