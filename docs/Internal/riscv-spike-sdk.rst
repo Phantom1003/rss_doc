@@ -557,7 +557,7 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 执行简单程序
 -------------------------
 
-我们编写一个简单的 riscv 指令集的汇编程序，然后用 riscv64-unknown-elf-gcc 编译为 elf 文件，之后执行``spike testcase.elf``即可在 spike 上执行该程序。
+我们编写一个简单的 riscv 指令集的汇编程序，然后用 riscv64-unknown-elf-gcc 编译为 elf 文件，之后执行 ``spike testcase.elf`` 即可在 spike 上执行该程序。
 
 简单程序的执行机理如下，
 
@@ -569,7 +569,7 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 
 spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写来获得外部输入，或者输出字符到 stdout；不然的话 testcase.elf 执行过程中就看不到任何输出。
 
-为了查看 spike 内部执行的情况，或者对 spike 的执行进行断点调试，我们可以执行``spike -d testcase.elf``。-d 选项让 spike 在调试模式下运行，这个时候会有一个交互的命令行供调试者使用。此外对于一个在不断执行的程序们可以执行 ctrl+C 中断程序进入 debug 命令行交互模式。
+为了查看 spike 内部执行的情况，或者对 spike 的执行进行断点调试，我们可以执行 ``spike -d testcase.elf``。-d 选项让 spike 在调试模式下运行，这个时候会有一个交互的命令行供调试者使用。此外对于一个在不断执行的程序们可以执行 ctrl+C 中断程序进入 debug 命令行交互模式。
 
 .. code-block:: sh
 
@@ -599,17 +599,14 @@ spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写�
 
 - ``reg core_id reg_name``，可以查看寄存器的值。因此 spike 可以模拟多个 core，所以需要 core_id 指示是哪个处理器。
 
-        - ``reg 0 a0``，就是查看 0 号 core 的 a0 寄存器的值。
+  - ``reg 0 a0``，就是查看 0 号 core 的 a0 寄存器的值。
 
 - 我们解析这部分指令：
 
-        1. a1 获得 0x1020 的地址，这个是处理器固件当中设备树文件所在的地址，这个地址会被传给后续的 bbl、linux 做进一步的解析
-
-        2. t0 读取 0x1000 地址中存储的内容，这个就是 spike 解析 elf 之后存储的 elf 的 entry 的地址
-
-        3. a0 获得 mhartid 的地址，也就是 core 的编号，不同的 core 执行后续的软件时在行为上会存在差异。（比如启动时 0 号 core 负责初始化，其他 core 死循环直到 0 号 core 初始化完毕才继续运行。）
-
-        4. 跳转到 t0 指示的 entry 地址，执行内存中载入的 elf 程序
+  1. a1 获得 0x1020 的地址，这个是处理器固件当中设备树文件所在的地址，这个地址会被传给后续的 bbl、linux 做进一步的解析
+  2. t0 读取 0x1000 地址中存储的内容，这个就是 spike 解析 elf 之后存储的 elf 的 entry 的地址
+  3. a0 获得 mhartid 的地址，也就是 core 的编号，不同的 core 执行后续的软件时在行为上会存在差异。（比如启动时 0 号 core 负责初始化，其他 core 死循环直到 0 号 core 初始化完毕才继续运行。）
+  4. 跳转到 t0 指示的 entry 地址，执行内存中载入的 elf 程序
 
 执行 help 可以查看更多交互命令；如果想退出 spike，执行 q 命令即可：
 
@@ -675,9 +672,8 @@ newlib 库程序执行
 
 这个程序没有办法直接在 spike 上执行：
 
-        - spike 上没有 printf 函数的代码实现
-
-        - elf 没有和物理地址相关的载入说明
+- spike 上没有 printf 函数的代码实现
+- elf 没有和物理地址相关的载入说明
 
 但是之前编译的 pk 可以解决这个问题。pk 在 spike 上启动一个小型的操作系统，可以为 elf 提供 newlib 的调用，并且可以将 elf 载入到合适的虚拟地址范围。
 
@@ -689,13 +685,13 @@ newlib 库程序执行
         bbl loader
         hello, world!   
 
-- ``bbl loader``是 pk 成功启动后的输出
-- ``hello, world!``是 a.out 顺利执行后调用 pk 的 newlib 输出的信息
+- ``bbl loader`` 是 pk 成功启动后的输出
+- ``hello, world!`` 是 a.out 顺利执行后调用 pk 的 newlib 输出的信息
 
 系统软件镜像的运行
 -----------------------
 
-1. 首先运行``spike --dum-dts``可以得到 spike 的设备树。conf/spike.dts 就是这样获得的，随着 spike 版本的升级，这个 spike 发生了变化，就可以用同样的方法升级 conf/spike.dts。
+1. 首先运行 ``spike --dum-dts`` 可以得到 spike 的设备树。conf/spike.dts 就是这样获得的，随着 spike 版本的升级，这个 spike 发生了变化，就可以用同样的方法升级 conf/spike.dts。
 
 .. code-block:: sh
 
@@ -718,7 +714,7 @@ newlib 库程序执行
 
 2. 编译需要的软件，这里直接执行 make bbl 即可，它会依次编译 buildroot、linux kernel、bbl，并且打包 spike.dts，最后得到可执行的 bbl
 
-3. 执行``make sim``，也就是``spike bbl``就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
+3. 执行 ``make sim``，也就是 ``spike bbl`` 就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
 
 .. code-block:: sh
 
@@ -803,7 +799,7 @@ opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维�
 模拟执行
 ----------------------------
 
-spike 模拟执行``make sim BL=opensbi``即可让 spike 执行 fw_jump.elf。
+spike 模拟执行 ``make sim BL=opensbi`` 即可让 spike 执行 fw_jump.elf。
 
 .. code-block:: Makefile
         ifeq ($(BL),opensbi)
@@ -912,7 +908,7 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
    |    :scale: 20%                          |                                     |
    +-----------------------------------------+-------------------------------------+
 
-之后我们执行``ls /dev``，就可以在 /dev 中看到新的 sd 设备。这里的 sda 是主机自带的磁盘，sda1-sda9 是磁盘的各个分区。sdb 就是我们插入的 SD 卡，sdb1-sdb2 是 SD 卡的各个分区。当然也不一定就是 sdb，也可能是 sdc、sdd。
+之后我们执行 ``ls /dev``，就可以在 /dev 中看到新的 sd 设备。这里的 sda 是主机自带的磁盘，sda1-sda9 是磁盘的各个分区。sdb 就是我们插入的 SD 卡，sdb1-sdb2 是 SD 卡的各个分区。当然也不一定就是 sdb，也可能是 sdc、sdd。
 
 .. code-block:: sh
 
@@ -978,7 +974,7 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
 
 如果要在第二个分区挂载文件系统的话，需要两步操作：
 
-1. 在设备树的 bootargs 中加入``root=/dev/mmcblk0p2``，说明根文件系统是在 mmcblk0p2 这个分区的，那么等 linux 启动之后就会根据 root 将 SD 卡第二个分区的文件系统读出来作为根文件系统。
+1. 在设备树的 bootargs 中加入 ``root=/dev/mmcblk0p2``，说明根文件系统是在 mmcblk0p2 这个分区的，那么等 linux 启动之后就会根据 root 将 SD 卡第二个分区的文件系统读出来作为根文件系统。
 
 2. ``sudo mount /dev/sdb2 tmp``，将 sd 卡第二个分区挂载在 tmp 文件夹上，然后将其他文件系统的内容拷贝到这个文件夹，之后 umount 挂在即可。
 
