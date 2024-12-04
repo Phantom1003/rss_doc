@@ -44,11 +44,38 @@ starship 使用差分测试技术进行处理器功能的验证。差分测试�
 处理器模糊测试
 -----------------------------
 
-差分测试是在给定一个测试程序的情况下进行测试的，为了可以对处理器进行更充分地测试，我们借鉴软件的模糊测试技术进行硬件的模糊测试。
+差分测试是在给定一个测试程序的情况下进行测试的，为了可以对处理器进行更充分地测试，我们借鉴软件的模糊测试技术进行硬件的模糊测试。模糊测试大致分为如下的几个步骤：
+
+* testcase generator 负责生成各种测试样例
+* differential test 接收测试样例进行差分测试
+* 如果差分测试发现新的 bug 就交给 bug analysis 进行分析、归类、PoC 的生成
+* 处理器内部进行必要的插桩，插桩的结果交给 coverage feedback 模块分析
+* coverage feedback 分析的结果会反馈给 testcase generator，辅助测试样例的变异
 
 .. code-block:: text
 
-    
+    +----------------------+            +---------------------+             +----------------+
+    |                      |            |                     |             |                |
+    |  testcase generator  |----------->|  differential test  |------------>|  bug analysis  |
+    |                      |            |                     |             |                |
+    +----------------------+            +---------------------+             +----------------+
+                |                                   |
+               /|\                                 \|/
+                |                                   |
+                |                       +---------------------+
+                |                       |                     |
+                +-------guide-----------|  coverage feedback  |
+                                        |                     |
+                                        +---------------------+
+
+starship 的仿真验证流程可以对和 morfuzz 的仓库代码配置处理器进行模糊测试。
+
+* testcase generator 的部分用 `razzle`_ 实现
+* differential test 的部分用 riscv-isa-cosim 子模块实现
+* coverage feedback 部分在 rocket-chip 生成的时候自动插桩
+* MagicMakerBlockbox 模块配合指令随机数的生成
+
+.. _razzle: https://github.com/sycuricon/razzle.git
 
 riscv-isa-cosim
 -----------------------------
@@ -325,7 +352,10 @@ testbench 内部包含如下几个模块各司其职：
     STARSHIP_TOP    ?= starship.asic.StarshipSimTop
     STARSHIP_CONFIG ?= starship.asic.StarshipSimConfig
 
-对应的模块位于 repo/starship/src/main/scala/asic 当中。和 fpga 主要的区别在于，asic 没有 spi 外设接口，给 uart、memory 等外设接口提供了仿真的外设模块，并且加入了一个用于模糊测试的 magic 模块。
+对应的模块位于 repo/starship/src/main/scala/asic 当中。和 fpga 主要的区别在于：
+
+* asic 没有 spi 外设接口，给 uart、memory 等外设接口提供了仿真的外设模块
+* 加入了一个用于模糊测试的数据变异模块、随机数生成模块、coverage 插桩等
 
 为了可以进行 fuzzing 还需要给 rocket-chip 模块代码应用补丁，进行硬件插桩。执行
 
@@ -336,8 +366,229 @@ testbench 内部包含如下几个模块各司其职：
 
 rocket-chip 的各个补丁作用如下：
 
-* 1.patch：在 IBuf 增加 MagicMakerBlockbox 模块，用于对前端的指令进行突变，用于模糊测试
+* 1.patch：在 IBuf 增加 MagicMakerBlockbox 模块，用于模糊测试
 * 2.patch：增加硬件断点个数
 * 3.patch：将提交 log 的打印使能
 * 4.patch：增加 commit 测试、judge 测试时候的输出 log
-* 5.patch：生命 MagicMaskerBlackbox 模块
+* 5.patch：生成 MagicMaskerBlackbox 模块，用于模糊测试
+
+之后执行 ``make verilog`` 生成 sim 对应的 testharness 代码。
+
+之后还要执行 ``make verilog-patch`` 来对生成的 verilog 进行修改，主要使用一系列的 sed 进行字符串替换：
+
+* 实际运行的时候处理器从 0x10000 启动，然后将程序从外部存储搬运到内存；但是仿真的时候，readmemh 函数可以直接将程序载入内存，因此直接从 0x8000000 开始启动就可以了。这里将 s2_pc 寄存器的初始值修改为 0x8000000，就实现了这个效果。
+* 同理，将 core_boot_addr 等其他的起始地址从 0x10000 修改为 0x80000000
+* 插桩的初始值从随机数修改为 0，在 fpga 的 flow 中这些部分是不需要的，随意可以随便赋值；但是现在需要 covsum 的结果做覆盖率，那么就需要初始化为 0。
+
+.. code-block:: Makefile
+
+    verilog-patch: verilog
+        # sed -i "s/s2_pc <= 42'h10000/s2_pc <= 42'h80000000/g" $(ROCKET_TOP_VERILOG)
+        sed -i "s/s2_pc <= 40'h10000/s2_pc <= 40'h80000000/g" $(ROCKET_TOP_VERILOG)
+        sed -i "s/core_boot_addr_i = 64'h10000/core_boot_addr_i = 64'h80000000/g" $(ROCKET_TOP_VERILOG)
+        sed -i "s/40'h10000 : 40'h0/40'h80000000 : 40'h0/g" $(ROCKET_TOP_VERILOG)
+        sed -i "s/ram\[initvar\] = {2 {\$$random}}/ram\[initvar\] = 0/g" $(ROCKET_TH_SRAM)    
+        sed -i "s/_covMap\[initvar\] = _RAND/_covMap\[initvar\] = 0; \/\//g" $(ROCKET_TOP_VERILOG)
+        sed -i "s/_covState = _RAND/_covState = 0; \/\//g" $(ROCKET_TOP_VERILOG)
+        sed -i "s/_covSum = _RAND/_covSum = 0; \/\//g" $(ROCKET_TOP_VERILOG)
+
+riscv-isa-cosim 库编译
+------------------------------
+
+为 Verilog 的差分测试模块可以调用 cosim 的 api，我们需要将 riscv-isa-cosim 编译为链接库。
+
+.. code-block:: Makefile
+
+    SPIKE_DIR               := $(SRC)/riscv-isa-sim
+    SPIKE_SRC               := $(shell find $(SPIKE_DIR) -name "*.cc" -o -name "*.h" -o -name "*.c")
+    SPIKE_BUILD             := $(BUILD)/spike
+    SPIKE_LIB               := $(addprefix $(SPIKE_BUILD)/,libcosim.a libriscv.a libdisasm.a libsoftfloat.a libfesvr.a libfdt.a)
+    SPIKE_INCLUDE           := $(SPIKE_DIR) $(SPIKE_DIR)/cosim $(SPIKE_DIR)/fdt $(SPIKE_DIR)/fesvr \      
+                                $(SPIKE_DIR)/riscv $(SPIKE_DIR)/softfloat $(SPIKE_BUILD)       
+
+* repo/riscv-isa-sim：riscv-isa-cosim 的源代码
+* build/spike：编译 cosim 的工作区，编译得到的链接库也在其中
+* spike 链接库：编译得到的链接库位于 build/spike，包括
+
+    * libcosim.a：用于 cosim 差分测试
+    * libriscv.a：用于 riscv 指令解析和模拟
+    * libdisasm.a：用于反汇编
+    * libsoftfloat.a：用于软浮点运算
+    * libfesvr.a：用于 spike 和 host 交互
+    * libfdt.a：用于设备树解析
+
+* spike 头文件：位于 cosim 源代码的各个路径和 build 的各个路径
+
+.. code-block:: Makefile
+
+    export LD_LIBRARY_PATH=$(SPIKE_BUILD)
+
+    $(SPIKE_BUILD)/Makefile:
+        mkdir -p $(SPIKE_BUILD)
+        cd $(SPIKE_BUILD); $(SCL_PREFIX) $(SPIKE_DIR)/configure
+
+    $(SPIKE_LIB)&: $(SPIKE_SRC) $(SPIKE_BUILD)/Makefile
+        cd $(SPIKE_BUILD); $(SCL_PREFIX) make -j$(shell nproc) $(notdir $(SPIKE_LIB))
+
+之后执行 ``$(SPIKE_LIB)&`` target，在 build/spike 执行 configure 和 make 即可。这个编译过程其实和 rss 的 spike 编译方式一样，只是没有 install 而已。
+
+verilator 仿真
+------------------------------
+
+`verilator`_ 是开源的 verilog 模拟工具，它会将 verilog 先转化为 C++ 代码和驱动程序，然后通过执行 C++ 来进行 Veriog 仿真。支持 verilog、systemverilog 语法，支持仿真激励，支持 dpi-c。
+
+.. _verilator: https://github.com/verilator/verilator.git
+
+.. code-block:: Makefile
+
+    #######################################
+    #
+    #            Verilator
+    #
+    #######################################
+
+    VLT_BUILD       := $(BUILD)/verilator
+    VLT_WAVE        := $(VLT_BUILD)/wave
+    VLT_TARGET      := $(VLT_BUILD)/$(TB_TOP)
+
+    VLT_CFLAGS      := -std=c++17 $(addprefix -I,$(SPIKE_INCLUDE)) -I$(ROCKET_BUILD)
+
+    VLT_SRC_C       := $(SIM_DIR)/spike_difftest.cc \
+                            $(SPIKE_LIB) \
+                            $(SIM_DIR)/timer.cc
+
+    VLT_SRC_V       := $(SIM_DIR)/$(TB_TOP).v \
+                            $(SIM_DIR)/spike_difftest.v \
+                            $(SIM_DIR)/tty.v
+
+    VLT_DEFINE      := +define+MODEL=$(STARSHIP_TH)                         \
+                            +define+TOP_DIR=\"$(VLT_BUILD)\"                     \
+                            +define+INITIALIZE_MEMORY                            \
+                            +define+CLOCK_PERIOD=1.0                                     \     
+                            +define+DEBUG_VCD                                            \     
+                            +define+TARGET_$(STARSHIP_CORE)
+
+    VLT_OPTION      := -Wno-WIDTH -Wno-STMTDLY -Wno-fatal --timescale 1ns/10ps --trace --timing   \
+                            +systemverilogext+.sva+.pkg+.sv+.SV+.vh+.svh+.svi+ \
+                            +incdir+$(ROCKET_BUILD) +incdir+$(SIM_DIR) $(CHISEL_DEFINE) $(VLT_DEFINE)          \
+                            --cc --exe --Mdir $(VLT_BUILD) --top-module $(TB_TOP) --main -o $(TB_TOP)  \
+                            -CFLAGS "-DVL_DEBUG -DTOP=${TB_TOP} ${VLT_CFLAGS}"
+    VLT_SIM_OPTION  := +testcase=$(TESTCASE_ELF)
+
+    vlt-wave:               VLT_SIM_OPTION  += +dump
+    vlt-jtag:               VLT_SIM_OPTION  += +jtag_rbb_enable=1
+    vlt-jtag-debug: VLT_SIM_OPTION  += +dump +jtag_rbb_enable=1
+
+verilator 涉及到一大堆的配置参数
+
+* build/verilator：verilator 编译结果的工作区
+* build/verilator/wave：verilator dump 波形的工作区
+* build/verilator/Testbench：verilator 编译得到的用于模拟的可执行程序
+* VLT_CFLAGS：verilator 将 verilog 转化为 C/C++ 之后，用于 gcc/g++ 编译的参数配置
+* VLT_SRC_C：用于编译的 C 代码，用于 DPI-C，包括 build/spike 的 C 代码和 asic/sim 的 C 代码
+* VLT_SRC_V：用于编译的 Verilog 代码，位于 asic/sim
+* VLT_DEFINE：为 verilog 的编译传递宏定义，包括是否 define 和 define 的值
+* VLT_OPTION：verilator 需要的执行参数，包括允许 dump 波形（--trace）、提供顶层激励（--main）、提供 C 编译选项（-CFLAGS）等
+* VLT_SIM_OPTION：为 verilog 中的 plusargs 函数提供变量参数
+
+除了 vlt target 用于最基本的编译执行，Makefile 还提供了三个额外的 target 对配置进行开关。
+
+* vlt-wave：允许 dump 波形
+* vlt-jtag：允许 jtag 调试
+* vlt-jtag-debug：即允许 jtag 调试，又允许 dump 波形
+
+.. code-block:: Makefile
+
+    $(VLT_TARGET): $(VERILOG_SRC) $(ROCKET_ROM_HEX) $(ROCKET_INCLUDE) $(VLT_SRC_V) $(VLT_SRC_C) $(SPIKE_LIB)
+        $(MAKE) verilog-patch
+        mkdir -p $(VLT_BUILD) $(VLT_WAVE)
+        cd $(VLT_BUILD); verilator $(VLT_OPTION) -f $(ROCKET_INCLUDE) $(VLT_SRC_V) $(VLT_SRC_C)
+        make -C $(VLT_BUILD) -f V$(TB_TOP).mk $(TB_TOP)
+
+    vlt: $(VLT_TARGET) $(TESTCASE_HEX)
+        cd $(VLT_BUILD); ./$(TB_TOP) $(VLT_SIM_OPTION)
+
+    vlt-wave:               vlt
+    vlt-jtag:               vlt
+    vlt-jtag-debug: vlt
+
+    gtkwave:
+        gtkwave $(VLT_WAVE)/starship.vcd
+
+* $(VLT_TARGET) 依赖于 rocket-chip 生成的 verilog，依赖于 cosim 的静态链接库，依赖于 asic/sim 的测试代码
+* 执行 ``$(VLT_TARGET)``，verilator 根据一些列配置将所有的 Verilog、Cpp 文件编译为最后的 Testbench
+* 执行 ``make vlt`` 执行 Tetsbench 进行仿真；执行 vlt-wave、vlt-jtag、vlt-jtag-debug 可以启动额外的功能，dump 的波形位于 build/verilator/wave 文件夹下的 vcd 文件
+* 执行 ``make gtkwave`` 可以用 gtkwave 工具打开 dump 的波形文件
+
+测试程序传递
+---------------------------------
+
+测试程序地址记录在 conf/build.mk 中
+
+.. code-block:: Makefile
+
+    # Simulation Configuration
+    ##########################
+
+    STARSHIP_TESTCASE       ?= $(BUILD)/starship-dummy-testcase
+
+    $(BUILD)/starship-dummy-testcase:
+            mkdir -p $(BUILD)
+            wget https://github.com/sycuricon/riscv-tests/releases/download/dummy/rv64ui-p-simple -O $@
+
+STARSHIP_TESTCASE 指示了测试样例的 elf 文件的绝对路径。默认的情况下这个文件是 starship-dummp-testcase，Makefile 会从 github 上下载这个文件，然后执行。
+
+.. code-block:: Makefile
+
+    TESTCASE_ELF    := $(STARSHIP_TESTCASE)
+    TESTCASE_BIN    := $(shell mktemp)
+    TESTCASE_HEX    := $(STARSHIP_TESTCASE).hex
+
+    $(TESTCASE_HEX): $(TESTCASE_ELF)
+        riscv64-unknown-elf-objcopy --gap-fill 0                        \
+            --set-section-flags .bss=alloc,load,contents    \
+            --set-section-flags .sbss=alloc,load,contents   \
+            --set-section-flags .tbss=alloc,load,contents   \
+            -O binary $< $(TESTCASE_BIN)
+        od -v -An -tx8 $(TESTCASE_BIN) > $@
+        rm $(TESTCASE_BIN)
+
+之后这个 elf 文件会被转化为对应的 hex 文件，然后通过 +testcase 参数把路径传递给模拟执行的 verilog。elf 文件被 cosim 链接库的模拟器加载，hex 被处理器加载，然后开始做差分测试。
+
+VCS 仿真执行
+------------------------------------
+
+VCS 是工业级的仿真和综合软件，需要先安装 VCS 的正版软件并且购买证书才可以使用，如果是小作坊的话使用开源的 verilator 即可。
+
+VCS 的参数配置和 verilator 保持对偶，所以就不一一介绍了，大家类比即可。
+
+.. code-block:: Makefile
+
+    vcs: $(VCS_TARGET) $(TESTCASE_HEX)
+            mkdir -p $(VCS_BUILD) $(VCS_LOG) $(VCS_WAVE)
+            cd $(VCS_BUILD); \
+            $(VCS_TARGET) -quiet +ntb_random_seed_automatic -l $(VCS_LOG)/sim.log  \
+                    $(VCS_SIM_OPTION) 2>&1 | tee /tmp/rocket.log; exit "$${PIPESTATUS[0]}";       
+
+    vcs-wave vcs-debug: vcs
+    vcs-fuzz vcs-fuzz-debug: vcs
+    vcs-jtag vcs-jtag-debug: vcs
+
+    verdi:
+            mkdir -p $(VERDI_OUTPUT)
+            touch $(VERDI_OUTPUT)/signal.rc
+            cd $(VERDI_OUTPUT); \
+            verdi -$(VCS_OPTION) -q -ssy -ssv -ssz -autoalias \
+                    -ssf $(VCS_WAVE)/starship.fsdb -sswr $(VERDI_OUTPUT)/signal.rc \
+                    -logfile $(VCS_LOG)/verdi.log -top $(TB_TOP) -f $(ROCKET_INCLUDE) $(VCS_SRC_V) &
+
+* 执行 ``make vcs`` 即可 vcs 编译执行
+* vcs-wave 可以额外 dump 波形
+* vcs-debug 可以让模拟器输出指令执行时的调试信息
+* vcs-fuzz 可以进行模糊测试
+* vcs-fuzz-debug 可以在模糊测试的同时输出调试信息
+* vcs-jtag 可以进行 jtag 调试
+* vcs-jtag-debug 可以在 jtag 调试的同时输出指令执行的调试信息
+* ``make verdi`` 用 verdi 工具打开 fsdb 波形文件，是非常好用的调试工具
+
+至此 starship 仿真和测试的基本流程介绍完毕。
