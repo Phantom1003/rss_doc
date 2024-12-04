@@ -592,3 +592,93 @@ VCS 的参数配置和 verilator 保持对偶，所以就不一一介绍了，�
 * ``make verdi`` 用 verdi 工具打开 fsdb 波形文件，是非常好用的调试工具
 
 至此 starship 仿真和测试的基本流程介绍完毕。
+
+riscv-tests 的使用
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+处理器模糊测试需要特殊的软件支持和环境配置，执行的时间成本和技术成本比较高，往往用于复杂 bug 的挖掘和充分的验证。在多数情况下，使用现成的测试程序进行验证，就可以覆盖各种指令边界条件、特权级和地址模式。RISCV 官方提供了 riscv-tests 仓库提供丰富的测试样例，我们可以使用这些测试样例进行基本功能的覆盖测试，starship-dummy-testcase 就是用 riscv-tests 为基础设计产生的。
+
+执行如下的指令序列就可以对 riscv-tests 进行下载、编译、测试样例的安装：
+
+.. code-block:: sh
+
+    git clone https://github.com/riscv/riscv-tests
+    cd riscv-tests
+    git submodule update --init --recursive
+    autoconf
+    ./configure --prefix=$RISCV/target
+    make
+    make install
+
+riscv-tests 的比较重要的文件目录如下：
+
+.. code-block:: sh
+
+    .
+    ├── benchmarks          # 一些大的性能测试，比较复杂的处理逻辑
+    ├── env 
+    |   ├── encoding.h      # 提供一些编码的宏
+    |   ├── LICENSE 
+    |   ├── p               # 提供一些物理地址模式相关的宏
+    |   ├── pm              # 提供一些多核物理地址模式相关的宏
+    |   ├── pt              # 提供一些时钟中断物理地址模式相关的宏
+    |   └── v               # 提供一些虚拟地址模式相关的宏
+    ├── isa                 # 一些指令功能测试
+    ├── LICENSE             
+    ├── Makefile        
+    ├── mt                  # 一些矩阵向量测试
+    └── README.md
+
+对于 isa 的测试程序，它的功能可以通过命名窥见一斑。比如 ``rv64ua-v-amomin_w`` 是 rv64 处理器、a 指令扩展、虚拟地址执行模式、amomin_w 指令的测试程序。当使用 isa 的测试程序进行测试的时候首先要检查地址长度、指令集架构、地址模式是否支持，然后再开始测试。
+
+我们以 rv64ui-p-add 测试为例来看一下 riscv-tests 的测试逻辑。根据 dump 我们可以看到对应的代码组织如下：
+
+.. code-block:: text
+
+    +-----------------------------------+
+    |   _start:     j reset_vector      |
+    +-----------------------------------+
+    |                                   |
+    |           trap_vector             |
+    |                                   |
+    +-----------------------------------+
+    |   write_tohost: sw gp, tohost     |
+    +-----------------------------------+
+    |                                   |
+    |           reset_vector            |
+    |                                   |
+    +-----------------------------------+
+    |   test_2:     li gp, 2            |
+    |               li a1, 0            |
+    |               li a2, 0            |
+    |               add a4, a1, a2      |
+    |               li t2, 0            |
+    |               bne a4, t2, fail    |
+    +-----------------------------------+
+    |           test_3                  |
+    +-----------------------------------+
+    |           test_4                  |
+    +-----------------------------------+
+    |           ......                  |
+    +-----------------------------------+
+    |           j pass                  |
+    +-----------------------------------+
+    |   fail:       fence               |
+    |               slli gp, gp, 1      |
+    |               ori gp, gp, 1       |
+    |               ecall               |
+    +-----------------------------------+
+    |   pass:       fence               |
+    |               li gp, 1            |
+    |               ecall               |
+    +-----------------------------------+
+
+* 首先执行 _start 跳到 reset_vector
+* reset_vector 开始做初始化，对所有通用寄存器赋初值，对 csr 赋值，mret 到对应的特权态和地址
+* 执行后续的测试，每个测试的逻辑基本是，gp 设置为 test 编号，给寄存器赋值，执行待测指令，比较返回结果和预期的立即数是否保持一致，如果一致就继续执行下一个测试，不然跳到 fail
+* 通过所有测试最后进入 pass 分支，将 gp 设置为 1，然后 ecall 进入 trap handler
+* 没有通过测试进入 fail 分支，将 gp 设置为 ``(gp<<1)+1`` ，然后 ecall 进入 trap_handler
+* trap_handler 进入 write_tohost，将 gp 的值写入 to_host 寄存器给 host
+* host 检查结果是 1，则说明通过测试；结果不是 1，根据高位定位错误的 test 位置
+
+
