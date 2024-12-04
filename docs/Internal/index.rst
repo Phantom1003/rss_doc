@@ -9,7 +9,8 @@ Internal
   :maxdepth: 2
   
   riscv-spike-sdk
-  starship
+  starship-systhensis
+  starship-simulation
 
 
 .. footbibliography::
