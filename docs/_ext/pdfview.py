@@ -93,7 +93,7 @@ class PDFViewDirective(Figure):
             image_relative_page = pdf_relative_path + suffix
             image_path = pdf_path + suffix
 
-        target_image.save(image_path,"PNG")
+        target_image.save(image_path, "PNG")
         self.arguments[0] = image_relative_page
 
         return super().run()

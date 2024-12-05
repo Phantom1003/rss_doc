@@ -93,9 +93,9 @@ class RemoteCodeDirective(LiteralInclude):
 
             if 'caption' in self.options:
                 if self.options.get('caption', None):
-                    self.options['caption'] = f"{self.options['caption']} `🌏 <{url}>`_"
+                    self.options['caption'] = f"`{self.options['caption']} <{url}>`__"
                 else:
-                    self.options['caption'] = f"`{anno.split('#')[0].split('?')[0]} <{url}>`_"
+                    self.options['caption'] = f"`{anno.split('#')[0].split('?')[0]} <{url}>`__"
                 
         return super().run()
 
