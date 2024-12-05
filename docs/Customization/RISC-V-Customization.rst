@@ -97,8 +97,6 @@ Therefore, the definition of ``addi`` is as follows:
   :lines: 20-22
   :caption:
 
-Test hyperlink: `Stack Overflow home <https://stackoverflow.com/>`_.
-
 As you can see, the definition is straightforward.
 You can find more descriptions about the syntax in the official ``README``.
 Next, we move on to define our custom instruction.

@@ -789,10 +789,10 @@ opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维�
 
 .. code-block:: Makefile
 
-        $(fw_jump): $(opensbi_srcdir) $(linux_image) $(RISCV)/bin/$(target_linux)-gcc
-                rm -rf $(opensbi_wrkdir)
-                mkdir -p $(opensbi_wrkdir)
-                $(MAKE) -C $(opensbi_srcdir) FW_PAYLOAD_PATH=$(linux_image) PLATFORM=generic O=$(opensbi_wrkdir) CROSS_COMPILE=riscv64-unknown-linux-gnu-
+    $(fw_jump): $(opensbi_srcdir) $(linux_image) $(RISCV)/bin/$(target_linux)-gcc
+        rm -rf $(opensbi_wrkdir)
+        mkdir -p $(opensbi_wrkdir)
+        $(MAKE) -C $(opensbi_srcdir) FW_PAYLOAD_PATH=$(linux_image) PLATFORM=generic O=$(opensbi_wrkdir) CROSS_COMPILE=riscv64-unknown-linux-gnu-
 
 编译 opensbi，并且打包 linux image，最后的结果保存在 fw_jump.elf 当中
 
@@ -802,10 +802,11 @@ opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维�
 spike 模拟执行 ``make sim BL=opensbi`` 即可让 spike 执行 fw_jump.elf。
 
 .. code-block:: Makefile
-        ifeq ($(BL),opensbi)
-        .PHONY: sim
-        sim: $(fw_jump) $(spike)
-                $(spike) --isa=$(ISA) -p4 --kernel $(linux_image) $(fw_jump)
+
+    ifeq ($(BL),opensbi)
+    .PHONY: sim
+    sim: $(fw_jump) $(spike)
+        $(spike) --isa=$(ISA) -p4 --kernel $(linux_image) $(fw_jump)
 
 输出结果如下，除了 bootloader 阶段，后续和 bbl 无明显差异：
 
