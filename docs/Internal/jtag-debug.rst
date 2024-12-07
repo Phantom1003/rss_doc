@@ -51,6 +51,7 @@ DTM 内置一个 FSM、一个 IR 寄存器和一个 DR 寄存器。JTAG 的 TCLK
 这里我们可以将 DM 的寄存器序列类比为 memory，IR 类比为 MAR，DR 类比 MDR。
 
 我们假设现在想要执行寄存器读的命令，我们的 JTAG 可以进行如下的数据传输：
+
 * 首先 FSM 位于 Run-Test-Idle 状态
 * TMS 输入 1100，进入 Select-IR-Scan、Capture-IR、Shift-IR 状态，可以修改 DTM 中的 IR 寄存器
 * 执行寄存器读需要对 command 寄存器写入对应的命令，所以 TMS 输入 0， TDI 依次输入 command 的编号 0x17，通过位移操作和串并行转换，让 IR 载入 0x17 的值
@@ -62,7 +63,6 @@ DTM 内置一个 FSM、一个 IR 寄存器和一个 DR 寄存器。JTAG 的 TCLK
 * Shift-DR 除了将 TDI 写入 DR，还会将 DR 写入 TDO，从而通过串并行转换，将 DM 中的寄存器的值通过 TDO 返回 host
 
 .. image:: ../_img/debug_fsm.jpg
-    :scale: 100%
     :alt: state machine of jtag
     :align: center
 
@@ -121,7 +121,7 @@ openocd 连接
     .PHONY: openocd
     openocd: $(openocd)
 
-执行 ``make openocd`` 可以对 openocd 进行编译，首先用 bootstrap 和 configure 进行编译的配置生成，然后执行 make 和 make install 进行编译和安装。需要注意的是后，configure 执行的时候需要额外带 --enable-remote-bitbang 选项，这样编译得到的 openocd 才支持 remote_bitbang 连接。
+执行 ``make openocd`` 可以对 openocd 进行编译，首先用 bootstrap 和 configure 进行编译的配置生成，然后执行 make 和 make install 进行编译和安装。需要注意的是后，configure 执行的时候需要额外带 ``--enable-remote-bitbang`` 选项，这样编译得到的 openocd 才支持 remote_bitbang 连接。
 
 执行完毕后执行如下命令即可开始调试。这里的 log 就是 openocd 成功通过 remote_bitbang 连接到了 debug module，然后输出 debug module 内部 probe 的配置，之后开放 3333 端口供 gdb 远端调试。
 
@@ -168,7 +168,7 @@ openocd 连接
 conf/spike.cfg 是用于 openocd 对 spike 进行调试的配置，其内容如下，部分 field 的介绍如下：
 
 * interface：openocd 连接的端口的类型，这里是 remote_bitbang
-* remote_bitbang_host、remote_bitbang_port：连接的 remote_bitbang 的 TCP:IP 地址，所以其实也可以上网调试
+* remote_bitbang_host、remote_bitbang_port：连接的 remote_bitbang 的 TCP\:IP 地址，所以其实也可以上网调试
 * -irlen：IR 的长度
 * -expected-id：期待读到的 debug module 的版本号，不设置也可以
 
@@ -687,12 +687,11 @@ jtag 调试板连接
 可以看到引脚提供了一组 UART 线路和一组 JTAG 线路，然后通过同一个 USB 口发送给主机。现在我们将 5V、TDO、TDI、TCK、TMS、GND 六根线都用杜邦线和 VC707 的 GPIO 连接起来，连接图如下图：
 
 .. image:: ../_img/jtag_gpio.jpg
-    :scale: 100%
+    :width: 60%
     :alt: jtag link to gpio
     :align: center
 
 .. image:: ../_img/jtag_linker.jpg
-    :scale: 100%
     :alt: jtag link to USB
     :align: center
 
