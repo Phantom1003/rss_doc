@@ -11,7 +11,7 @@ Internal
   riscv-spike-sdk
   starship-systhensis
   starship-simulation
-  jtag_debug
+  jtag-debug
 
 
 .. footbibliography::
