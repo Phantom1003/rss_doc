@@ -277,7 +277,7 @@ rocket-chip 的 debug module
 
 我们的 starship 处理器可以通过配置增加 debug module，我们将 conf/build.mk 的配置修改为：
 
-.. code-block:: chisel
+.. code-block:: text
 
     STARSHIP_CORE   ?= Rocket
     STARSHIP_FREQ   ?= 100
@@ -287,7 +287,7 @@ rocket-chip 的 debug module
 
 可以看到 StarshipSimDebugConfig 在 StarshipSimConfig 的基础上多了一行 ``WithJtagDTM``；StarshipSimTop 多了一行 ``with HasPeripheryDebug``。从而让 Starship 内部增加并且连接了 debug module。
 
-.. code-block:: chisel
+.. code-block:: text
 
     class StarshipSimDebugConfig extends Config(
         new WithPeripherals ++
@@ -319,7 +319,7 @@ rocket-chip 的 debug module
 
 之后我们对 Testharness 进行修改，将 debug module 和外围连接起来。以下仅展示 debug module 相关的部分，首先 reset 信号和 debug 模块的 reset 信号或起来，让 debug module 可以复位处理器；其次 ``Debug.connectDebug`` 函数将 dut 的 debug module 相关的接口和一些外部连接连接起来，然后将 jtag 信号和一个模拟的 remotebitbang 模块连接起来。
 
-.. code-block:: chisel
+.. code-block:: text
 
     class TestHarness()(implicit p: Parameters) extends Module {
 
@@ -527,7 +527,7 @@ SimJTAG 模块内部是个 DPI-C 的 jtag-tick function 接口，这个接口会
 
 现在我们介绍 bitstream 下板调试
 
-  rocket-chip 的 debug module
+rocket-chip 的 debug module
 ------------------------------------
 
 我们的 starship 处理器可以通过配置增加 debug module，我们将 conf/build.mk 的配置修改为：
@@ -542,7 +542,7 @@ SimJTAG 模块内部是个 DPI-C 的 jtag-tick function 接口，这个接口会
 
 StarshipFPGADebugConfig 在原来 StarshipFPGAConfig 的基础上将 ``case DebugModuleKey => None`` 注释掉，这样就可以生成 DebugModule 模块；StarshipFPGATop 同理增加 ``with HasPeripheryDebug``，允许提供 debug 的外围设备。
 
-.. code-block:: chisel
+.. code-block:: text
 
     class StarshipFPGADebugConfig extends Config(
         new WithPeripherals ++
@@ -589,7 +589,7 @@ StarshipFPGADebugConfig 在原来 StarshipFPGAConfig 的基础上将 ``case Debu
 * 将 ndreset 和 io_reset 或起来控制 core 的复位
 * 调用 ``Debug.connectDebugClockAndReset`` 设置 debug 的 reset 和 clock 信号
 
-.. code-block:: chisel
+.. code-block:: text
 
     class TestHarness(override implicit val p: Parameters) extends VC707Shell
         with HasDDR3
