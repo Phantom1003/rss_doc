@@ -12,6 +12,6 @@ Internal
   starship-systhensis
   starship-simulation
   jtag-debug
-
+  custom-instruction
 
 .. footbibliography::
