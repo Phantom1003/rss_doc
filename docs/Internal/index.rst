@@ -13,6 +13,5 @@ Internal
   starship-simulation
   jtag-debug
   custom-instruction
-  tape-out
 
 .. footbibliography::
