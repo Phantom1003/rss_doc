@@ -106,31 +106,45 @@ riscv-gnu-toolchain 可以编译提供了两套工具链：
 
 - ABI 是应用二进制接口，也就是读函数传参寄存器的定义，lp64 指整数和指针用 64 位整数寄存器传参，d 指浮点用双精度浮点寄存器传参。这个参数被用于编译器的生成和后续编译器的调用。该参数需要确保所有的软件相统一。
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 3-6
+	:caption: arch 基本配置
 
-    RISCV ?= $(CURDIR)/toolchain
-    PATH := $(RISCV)/bin:$(PATH)
-    ISA ?= rv64imafdc_zifencei_zicsr
-    ABI ?= lp64d
+编译相关的变量定义如下：
 
-编译相关的 target 如下。可以看到，首先将 linux 中的头文件安装到 build/toolchain 当中，然后配置 toolchain 编译的编译目录、安装目录、isa 和 abi 参数，之后编译 toolchain 即可。
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 16-18
+	:caption: toolchain 路径变量
 
-.. code-block:: Makefile
+* repo/riscv-gnu-toolchain：toolchain 的源代码
+* build/riscv-gnu-toolchain：编译 toolchain 的工作目录
+* toolchain：toolchain 编译之后安装的目录
 
-        wrkdir := $(CURDIR)/build
-        toolchain_srcdir := $(srcdir)/riscv-gnu-toolchain
-        toolchain_wrkdir := $(wrkdir)/riscv-gnu-toolchain
-        toolchain_dest := $(CURDIR)/toolchain
-        target_linux  := riscv64-unknown-linux-gnu
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 57-57
+	:caption: riscv-unknown-linux-gnu 工具链选项
 
-        $(toolchain_dest)/bin/$(target_linux)-gcc:
-                mkdir -p $(toolchain_wrkdir)
-                $(MAKE) -C $(linux_srcdir) O=$(toolchain_wrkdir) ARCH=riscv INSTALL_HDR_PATH=$(abspath $(toolchain_srcdir)/linux-headers) headers_install
-                cd $(toolchain_wrkdir); $(toolchain_srcdir)/configure \
-                        --prefix=$(toolchain_dest) \
-                        --with-arch=$(ISA) \
-                        --with-abi=$(ABI) 
-                $(MAKE) -C $(toolchain_wrkdir) linux
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 71-79
+	:caption: 编译 riscv-unknown-linux-gnu 工具链
+
+target 编译的执行过程如下：
+
+* 将 linux 中的头文件安装到 build/toolchain 当中
+* 配置 toolchain 编译的编译目录、安装目录、isa 和 abi 参数
+* make 编译 toolchain 即可
  
 编译完毕后，我们就可以在 toolchain/bin 当中看到一系列的 riscv64-unknown-linux-gnu 工具链：
 
@@ -160,16 +174,19 @@ riscv-gnu-toolchain 可以编译提供了两套工具链：
 
 编译的 target 如下：
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 58-58
+	:caption: 编译 riscv-unknown-elf 工具链选项
 
-        target_newlib := riscv64-unknown-elf
-        $(RISCV)/bin/$(target_newlib)-gcc:
-        mkdir -p $(toolchain_wrkdir)
-        cd $(toolchain_wrkdir); $(toolchain_srcdir)/configure \
-                --prefix=$(toolchain_dest) \
-                --enable-multilib
-        $(MAKE) -C $(toolchain_wrkdir)
-
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 81-86
+	:caption: 编译 riscv-unknown-elf 工具链
 
 编译结束后就可以在 toolchain/bin 当中找到 riscv64-unknown-elf 相关的工具链。
 
@@ -185,16 +202,12 @@ buildroot 模块被用于构造 initramfs，也就是用于初始化的、被保
 
 编译 buildroot 需要依赖一个额外的配置文件，这里保存在 conf/buildroot_initramfs_config 当中，文件的配置如下：
 
-.. code-block:: text
-
-        BR2_riscv=y
-        BR2_TOOLCHAIN_EXTERNAL=y
-        BR2_TOOLCHAIN_EXTERNAL_PATH="$(RISCV)"
-        BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX="riscv64-unknown-linux-gnu"
-        BR2_TOOLCHAIN_EXTERNAL_HEADERS_6_4=y
-        BR2_TOOLCHAIN_EXTERNAL_CUSTOM_GLIBC=y
-        # BR2_TOOLCHAIN_EXTERNAL_INET_RPC is not set
-        BR2_TOOLCHAIN_EXTERNAL_CXX=y
+.. remotecode:: ../_static/tmp/buildroot_initramfs_config
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/conf/buildroot_initramfs_config
+	:language: text
+	:type: github-permalink
+	:lines: 1-10
+	:caption: initramfs 编译选项
 
 BR2_TOOLCHAIN_EXTERNAL_HEADERS_6_4=y 定义了 buildroot 依赖的 linux 内核的版本类型，比如这里是因为我们搭配的 linux 内核是 6.4 版本，如果更换了内核版本，这个参数也要跟着做修改。
 
@@ -203,45 +216,33 @@ BR2_TOOLCHAIN_EXTERNAL_HEADERS_6_4=y 定义了 buildroot 依赖的 linux 内核�
 
 编译 buildroot 的 makefile 脚本如下：
 
-.. code-block:: Makefile
-
-        buildroot_srcdir := $(srcdir)/buildroot
-        buildroot_initramfs_wrkdir := $(topdir)/rootfs/buildroot_initramfs
-        buildroot_initramfs_tar := $(buildroot_initramfs_wrkdir)/images/rootfs.tar
-        buildroot_initramfs_config := $(confdir)/buildroot_initramfs_config
-        buildroot_initramfs_sysroot_stamp := $(wrkdir)/.buildroot_initramfs_sysroot
-        buildroot_initramfs_sysroot := $(topdir)/rootfs/buildroot_initramfs_sysroot
-
-
-- conf/buildroot_initramfs_config：提供的 buildroot 的配置
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 20-25
+	:caption: buildroot 路径变量
 
 - repo/buildroot：buildroot 的源代码
 
 - rootfs/buildroot_initramfs：buildroot 编译的工作区
 
-- rootfs/buildroot_initramfs/.config：编译 buildroot 用到的完整的 buildroot 配置
-
 - rootfs/buildroot_initramfs/image/rootfs.tar：buildroot 编译得到的 initramfs 压缩包
+
+- conf/buildroot_initramfs_config：提供的 buildroot 的配置
+
+- rootfs/buildroot_initramfs/.config：编译 buildroot 用到的完整的 buildroot 配置
 
 - rootfs/buildroot_initramfs_sysroot：rootfs.tar 解压缩后的内容
 
-.. code-block:: Makefile
+- rootfs/buildroot_initramfs/.buildroot_initramfs_sysroot：表示 buildroot 完毕
 
-        $(buildroot_initramfs_wrkdir)/.config: $(buildroot_srcdir)
-                rm -rf $(dir $@)
-                mkdir -p $(dir $@)
-                cp $(buildroot_initramfs_config) $@
-                $(MAKE) -C $< RISCV=$(RISCV) PATH="$(PATH)" O=$(buildroot_initramfs_wrkdir) olddefconfig CROSS_COMPILE=riscv64-unknown-linux-gnu-
-
-        $(buildroot_initramfs_tar): $(buildroot_srcdir) $(buildroot_initramfs_wrkdir)/.config $(RISCV)/bin/$(target_linux)-gcc $(buildroot_initramfs_config)
-                $(MAKE) -C $< RISCV=$(RISCV) PATH="$(PATH)" O=$(buildroot_initramfs_wrkdir)
-
-        $(buildroot_initramfs_sysroot): $(buildroot_initramfs_tar)
-                mkdir -p $(buildroot_initramfs_sysroot)
-                tar -xpf $< -C $(buildroot_initramfs_sysroot) --exclude ./dev --exclude ./usr/share/locale
-
-        .PHONY: buildroot_initramfs_sysroot
-        buildroot_initramfs_sysroot: $(buildroot_initramfs_sysroot)
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 88-105
+	:caption: buildroot 编译
 
 
 1. 执行 buildroot_initramfs_sysroot 项目，编译 initramfs 的 sysroot
@@ -291,12 +292,12 @@ initramfs
 
 conf/initramfs.txt 是 kernel 携带 initramfs 的时候额外需要携带的文件，文件内容如下：
 
-.. code-block:: sh
-
-        dir /dev 755 0 0
-        nod /dev/console 644 0 0 c 5 1
-        nod /dev/null 644 0 0 c 1 3
-        slink /init /bin/busybox 755 0 0
+.. remotecode:: ../_static/tmp/initramfs_command
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/conf/initramfs.txt
+	:language: text
+	:type: github-permalink
+	:lines: 1-4
+	:caption: initramfs 启动命令
 
 当 initramfs 文件系统被挂载之后，他会执行这个 initramfs.txt 中的命令，生成额外的 dev 文件夹，将 bin/busybox 链接到 init 进程，之后开始执行 init 进程进行用户态的初始化。
 
@@ -313,19 +314,14 @@ linux 内核是操作系统的核心部分，负责初始化系统态的各个�
 配置文件
 ----------------
 
-编译 linux 同样依赖配置文件 conf/linux_defconfig，该配置文件内容如下：
+编译 linux 同样依赖配置文件 conf/linux_defconfig，该配置文件部分内容如下：
 
-.. code-block:: text
-
-        CONFIG_EMBEDDED=y
-        CONFIG_SOC_SIFIVE=y
-        CONFIG_SMP=y
-        CONFIG_HZ_100=y
-        CONFIG_CMDLINE="earlyprintk"
-        CONFIG_PARTITION_ADVANCED=y
-        # CONFIG_COMPACTION is not set
-        ....
-
+.. remotecode:: ../_static/tmp/linux_defconf
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/conf/linux_defconfig
+	:language: text
+	:type: github-permalink
+	:lines: 1-11
+	:caption: initramfs 启动命令
 
 一些比较特殊的配置字段如下：
 
@@ -339,20 +335,26 @@ linux 内核是操作系统的核心部分，负责初始化系统态的各个�
 
 - CONFIG_MODULES=y：允许加载额外的内核模块，即可以执行 insmod、rmmod 等
 
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 137-141
+	:caption: 修改 linux 配置
+
+执行 ``make linux-menuconfig`` 可以修改 linux_defconf 的配置，其实就是执行 repo/linux 的 menuconfig 和 savedefconfig target
+
 开始编译
 ---------------------
 
 编译 linux 的脚本如下：
 
-.. code-block:: makefile
-
-        linux_srcdir := $(srcdir)/linux
-        linux_wrkdir := $(wrkdir)/linux
-        linux_defconfig := $(confdir)/linux_defconfig
-
-        vmlinux := $(linux_wrkdir)/vmlinux
-        vmlinux_stripped := $(linux_wrkdir)/vmlinux-stripped
-        linux_image := $(linux_wrkdir)/arch/riscv/boot/Image
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 27-33
+	:caption: linux 路径变量
 
 - repo/linux：为 linux 的源代码
 
@@ -366,36 +368,12 @@ linux 内核是操作系统的核心部分，负责初始化系统态的各个�
 
 - build/linux/arch/riscv/boot/Image：vumlinux-stripped 生成的二进制镜像文件
 
-.. code-block:: sh
-
-        $(linux_wrkdir)/.config: $(linux_defconfig) $(linux_srcdir)
-                mkdir -p $(dir $@)
-                cp -p $< $@
-                $(MAKE) -C $(linux_srcdir) O=$(linux_wrkdir) ARCH=riscv CROSS_COMPILE=riscv64-unknown-linux-gnu- olddefconfig
-                echo $(ISA)
-                echo $(filter rv32%,$(ISA))
-        ifeq (,$(filter rv%c,$(ISA)))
-                sed 's/^.-CONFIG_RISCV_ISA_C.-$$/CONFIG_RISCV_ISA_C=n/' -i $@
-                $(MAKE) -C $(linux_srcdir) O=$(linux_wrkdir) ARCH=riscv CROSS_COMPILE=riscv64-unknown-linux-gnu- olddefconfig
-        endif
-
-        $(vmlinux): $(linux_srcdir) $(linux_wrkdir)/.config $(buildroot_initramfs_sysroot)
-                $(MAKE) -C $< O=$(linux_wrkdir) \
-                        CONFIG_INITRAMFS_SOURCE="$(confdir)/initramfs.txt $(buildroot_initramfs_sysroot)" \
-                        CONFIG_INITRAMFS_ROOT_UID=$(shell id -u) \
-                        CONFIG_INITRAMFS_ROOT_GID=$(shell id -g) \
-                        CROSS_COMPILE=riscv64-unknown-linux-gnu- \
-                        ARCH=riscv \
-                        all
-
-        $(vmlinux_stripped): $(vmlinux)
-                $(target_linux)-strip -o $@ $<
-
-        $(linux_image): $(vmlinux)
-
-        .PHONY: vmlinux
-        vmlinux: $(vmlinux)
-
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 107-135
+	:caption: linux 编译
 
 1. 执行 $(linux_wrkdir)/.config，将 conf/linux_defconfig 拷贝到 build/linux，然后执行 linux 的 olddefconfig 在 linux_defconfig 的基础上生成新的配置文件 .conf
 
@@ -414,13 +392,14 @@ riscv-pk 有两个作用，一个是配合 spike 模拟器提供一个简单的 
 开始编译
 ------------------
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 35-39
+	:caption: pk 路径变量
 
-        pk_srcdir := $(srcdir)/riscv-pk
-        pk_wrkdir := $(wrkdir)/riscv-pk
-        bbl := $(pk_wrkdir)/bbl
-        pk  := $(pk_wrkdir)/pk
-
+- BOARD 和 DTS 参数用于指定生成 bbl 时候携带的设备树文件，仿真使用 spike.dts，在 VC707 FPGA 环境执行使用 starship.dts
 
 - repo/riscv-pk：riscv-pk 的源代码
 
@@ -432,65 +411,27 @@ riscv-pk 有两个作用，一个是配合 spike 模拟器提供一个简单的 
 
 - build/bbl.bin：bbl elf 文件对应的二进制镜像
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 143-162
+	:caption: pk 路径变量
 
-        ifeq ($(BOARD),False)
-                DTS=$(abspath conf/spike.dts)
-        else
-                DTS=$(abspath conf/starship.dts)
-        endif
+1. 执行 $(bbl) 生成 bbl。先执行 configure，根据 with-dts 选择系统文件携带的系统设备树文件（spike.dts 或者 starship.dts），with-logo 选择系统文件附带的 logo，with-payload 选择负载的 kernel 文件（也就是前面生成的 vmlinux-stripped），host 选择系统文件的编译和运行时环境（riscv64-unknown-linux-gnu 或者 riscv64-unknown-elf）得到对应的配置文件，然后执行 make 生成 pk 和 bbl。
 
-        $(bbl): $(pk_srcdir) $(vmlinux_stripped)
-                rm -rf $(pk_wrkdir)
-                mkdir -p $(pk_wrkdir)
-                cd $(pk_wrkdir) && $</configure \
-                        --host=$(target_linux) \
-                        --with-payload=$(vmlinux_stripped) \
-                        --enable-logo \
-                        --with-logo=$(abspath conf/logo.txt) \
-                        --with-dts=$(DTS)
-                CFLAGS="-mabi=$(ABI) -march=$(ISA)" $(MAKE) -C $(pk_wrkdir)
-
-        $(pk): $(pk_srcdir) $(RISCV)/bin/$(target_newlib)-gcc
-                rm -rf $(pk_wrkdir)
-                mkdir -p $(pk_wrkdir)
-                cd $(pk_wrkdir) && $</configure \
-                        --host=$(target_newlib) \
-                        --prefix=$(abspath $(toolchain_dest))
-                CFLAGS="-mabi=$(ABI) -march=$(ISA)" $(MAKE) -C $(pk_wrkdir)
-                $(MAKE) -C $(pk_wrkdir) install
-
-        .PHONY: bbl
-        bbl: $(bbl)
-
-
-1. DTS 参数用于指定生成 bbl 时候携带的设备树文件，仿真使用 spike.dts，在 VC707 FPGA 环境执行使用 starship.dts
-
-2. 执行 $(bbl) 生成 bbl。先执行 configure，根据 with-dts 选择系统文件携带的系统设备树文件（spike.dts 或者 starship.dts），with-logo 选择系统文件附带的 logo，with-payload 选择负载的 kernel 文件（也就是前面生成的 vmlinux-stripped），host 选择系统文件的编译和运行时环境（riscv64-unknown-linux-gnu 或者 riscv64-unknown-elf）得到对应的配置文件，然后执行 make 生成 pk 和 bbl。
-
-3. 执行 $(pk) 生成 pk。host 选择使用 riscv64-uknown-elf，所以搭配 riscv64-unknown-elf 生成的可执行程序使用；prefix 选择 toolchain，所以生成的程序会被安装到 toolchain 中。
+2. 执行 $(pk) 生成 pk。host 选择使用 riscv64-uknown-elf，所以搭配 riscv64-unknown-elf 生成的可执行程序使用；prefix 选择 toolchain，所以生成的程序会被安装到 toolchain 中。
 
 logo
 ~~~~~~~~~~~~~~~~
 
 我们的 logo 保存在 conf/logo.txt，这个 logo 在 bbl 启动的时候会被打印出来，作为我们的标识符。RSS 是 riscv-spike-sdk 的简写。
 
-.. code-block:: text
-
-
-                        RISC-V Spike Simulator SDK
-
-                ___           ___           ___     
-               /\  \         /\  \         /\  \    
-              /  \  \       /  \  \       /  \  \   
-             / /\ \  \     / /\ \  \     / /\ \  \  
-            /  \~\ \  \   _\ \~\ \  \   _\ \~\ \  \ 
-           / /\ \ \ \__\ /\ \ \ \ \__\ /\ \ \ \ \__\
-           \/_|  \/ /  / \ \ \ \ \/__/ \ \ \ \ \/__/
-              | |  /  /   \ \ \ \__\    \ \ \ \__\  
-              | |\/__/     \ \/ /  /     \ \/ /  /  
-              | |  |        \  /  /       \  /  /   
-               \|__|         \/__/         \/__/ 
+.. remotecode:: ../_static/tmp/rss_logo
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/conf/logo.txt
+	:language: text
+	:type: github-permalink
+	:caption: RSS logo
      
 dts
 ~~~~~~~~~~~~~~~~~~
@@ -513,11 +454,12 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 开始编译
 -------------------
 
-.. code-block:: Makefile
-
-        spike_srcdir := $(srcdir)/riscv-isa-sim
-        spike_wrkdir := $(wrkdir)/riscv-isa-sim
-        spike := $(toolchain_dest)/bin/spike
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 45-47
+	:caption: spike 路径变量
 
 - repo/riscv-isa-sim：spike 的源代码
 
@@ -525,17 +467,12 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 
 - toolchain/bin/spike：编译后安装的 spike 工具 
 
-.. code-block:: Makefile
-
-        $(spike): $(spike_srcdir)
-                rm -rf $(spike_wrkdir)
-                mkdir -p $(spike_wrkdir)
-                mkdir -p $(dir $@)
-                cd $(spike_wrkdir) && $</configure \
-                        --prefix=$(dir $(abspath $(dir $@))) 
-                $(MAKE) -C $(spike_wrkdir)
-                $(MAKE) -C $(spike_wrkdir) install
-                touch -c $@
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 169-177
+	:caption: spike 编译
 
 1. prefix 配置指定了生成的 spike 等工具安装的目录位置
 
@@ -547,12 +484,12 @@ spike 是 riscv 指令集的指令级模拟器。它可以模拟一个多核、�
 
 .. code-block:: sh
 
-        riscv-spike-sdk/toolchain/bin$ ls | grep spike
-        spike
-        spike-dasm
-        spike-log-parser
-        termios-xspike
-        xspike
+	riscv-spike-sdk/toolchain/bin$ ls | grep spike
+	spike
+	spike-dasm
+	spike-log-parser
+	termios-xspike
+	xspike
 
 执行简单程序
 -------------------------
@@ -573,25 +510,25 @@ spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写�
 
 .. code-block:: sh
 
-        riscv-spike-sdk$ ./toolchain/bin/spike -d starship-dummy-testcase 
-        (spike) 
-        core   0: 0x0000000000001000 (0x00000297) auipc   t0, 0x0
-        (spike)
-        core   0: 0x0000000000001004 (0x02028593) addi    a1, t0, 32
-        (spike)
-        core   0: 0x0000000000001008 (0xf1402573) csrr    a0, mhartid
-        (spike) reg 0 t0
-        0x0000000000001000
-        (spike) reg 0 a1
-        0x0000000000001020
-        (spike) reg 0 a0
-        0x0000000000000000
-        (spike)
-        core   0: 0x000000000000100c (0x0182b283) ld      t0, 24(t0)
-        (spike)
-        core   0: 0x0000000000001010 (0x00028067) jr      t0
-        (spike) reg 0 t0  
-        0x0000000080000000
+	riscv-spike-sdk$ ./toolchain/bin/spike -d starship-dummy-testcase 
+	(spike) 
+	core   0: 0x0000000000001000 (0x00000297) auipc   t0, 0x0
+	(spike)
+	core   0: 0x0000000000001004 (0x02028593) addi    a1, t0, 32
+	(spike)
+	core   0: 0x0000000000001008 (0xf1402573) csrr    a0, mhartid
+	(spike) reg 0 t0
+	0x0000000000001000
+	(spike) reg 0 a1
+	0x0000000000001020
+	(spike) reg 0 a0
+	0x0000000000000000
+	(spike)
+	core   0: 0x000000000000100c (0x0182b283) ld      t0, 24(t0)
+	(spike)
+	core   0: 0x0000000000001010 (0x00028067) jr      t0
+	(spike) reg 0 t0  
+	0x0000000080000000
 
 - 敲击回车可以让 spike 单步执行一条指令
 
@@ -612,37 +549,37 @@ spike 还额外模拟了串口等设备，testcase 可以向串口 MMIO 读写�
 
 .. code-block:: sh
 
-        (spike) help
-        Interactive commands:
-        reg <core> [reg]                # Display [reg] (all if omitted) in <core>
-        freg <core> <reg>               # Display float <reg> in <core> as hex
-        pc <core>                       # Show current PC in <core>
-        priv <core>                     # Show current privilege level in <core>
-        mem [core] <hex addr>           # Show contents of virtual memory <hex addr> in [core] (physical memory <hex addr> if omitted)
-        str [core] <hex addr>           # Show NUL-terminated C string at virtual address <hex addr> in [core] (physical address <hex addr> if omitted)
-        dump                            # Dump physical memory to binary files
-        dump_all                        # Dump physical memory to hex and dump regs info to inst
-        ...
+	(spike) help
+	Interactive commands:
+	reg <core> [reg]                # Display [reg] (all if omitted) in <core>
+	freg <core> <reg>               # Display float <reg> in <core> as hex
+	pc <core>                       # Show current PC in <core>
+	priv <core>                     # Show current privilege level in <core>
+	mem [core] <hex addr>           # Show contents of virtual memory <hex addr> in [core] (physical memory <hex addr> if omitted)
+	str [core] <hex addr>           # Show NUL-terminated C string at virtual address <hex addr> in [core] (physical address <hex addr> if omitted)
+	dump                            # Dump physical memory to binary files
+	dump_all                        # Dump physical memory to hex and dump regs info to inst
+	...
 
 之后我们继续执行，最后的输出如下：
 
 .. code-block:: sh
 
-        (spike) 
-        core   0: 0x00000000800001a0 (0x00000073) ecall
-        core   0: exception trap_user_ecall, epc 0x00000000800001a0
-        (spike) 
-        core   0: >>>>  trap_vector
-        core   0: 0x0000000080000004 (0x34202f73) csrr    t5, mcause
-        (spike) 
-        core   0: 0x0000000080000008 (0x00800f93) li      t6, 8
-        (spike) 
-        core   0: 0x000000008000000c (0x03ff0863) beq     t5, t6, pc + 48
-        (spike)
-        core   0: >>>>  write_tohost
-        core   0: 0x000000008000003c (0x00001f17) auipc   t5, 0x1
-        (spike) 
-        core   0: 0x0000000080000040 (0xfc3f2223) sw      gp, -60(t5)
+	(spike) 
+	core   0: 0x00000000800001a0 (0x00000073) ecall
+	core   0: exception trap_user_ecall, epc 0x00000000800001a0
+	(spike) 
+	core   0: >>>>  trap_vector
+	core   0: 0x0000000080000004 (0x34202f73) csrr    t5, mcause
+	(spike) 
+	core   0: 0x0000000080000008 (0x00800f93) li      t6, 8
+	(spike) 
+	core   0: 0x000000008000000c (0x03ff0863) beq     t5, t6, pc + 48
+	(spike)
+	core   0: >>>>  write_tohost
+	core   0: 0x000000008000003c (0x00001f17) auipc   t5, 0x1
+	(spike) 
+	core   0: 0x0000000080000040 (0xfc3f2223) sw      gp, -60(t5)
 
 - 对于异常等特殊事件 spike 会给出额外的提示
 
@@ -665,10 +602,10 @@ newlib 库程序执行
 
 .. code-block:: C
 
-        #include<stdio.h>
-        int main(){
-                printf("hello, world!\n");
-        }
+	#include<stdio.h>
+	int main(){
+			printf("hello, world!\n");
+	}
 
 这个程序没有办法直接在 spike 上执行：
 
@@ -681,9 +618,9 @@ newlib 库程序执行
 
 .. code-block:: sh
 
-        riscv-spike-sdk$ ./toolchain/bin/spike ./build/riscv-pk/pk a.out 
-        bbl loader
-        hello, world!   
+	riscv-spike-sdk$ ./toolchain/bin/spike ./build/riscv-pk/pk a.out 
+	bbl loader
+	hello, world!   
 
 - ``bbl loader`` 是 pk 成功启动后的输出
 - ``hello, world!`` 是 a.out 顺利执行后调用 pk 的 newlib 输出的信息
@@ -695,77 +632,85 @@ newlib 库程序执行
 
 .. code-block:: sh
 
-        ./toolchain/bin/spike --dump-dts starship-dummy-testcase
-        /dts-v1/;
+	./toolchain/bin/spike --dump-dts starship-dummy-testcase
+	/dts-v1/;
 
-        / {
-        #address-cells = <2>;
-        #size-cells = <2>;
-        compatible = "ucbbar,spike-bare-dev";
-        model = "ucbbar,spike-bare";
-        chosen {
-        stdout-path = &SERIAL0;
-        bootargs = "console=ttyS0 earlycon";
-        };
-        cpus {
-        #address-cells = <1>;
-        #size-cells = <0>;
-        ...
+	/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	compatible = "ucbbar,spike-bare-dev";
+	model = "ucbbar,spike-bare";
+	chosen {
+	stdout-path = &SERIAL0;
+	bootargs = "console=ttyS0 earlycon";
+	};
+	cpus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	...
 
 2. 编译需要的软件，这里直接执行 make bbl 即可，它会依次编译 buildroot、linux kernel、bbl，并且打包 spike.dts，最后得到可执行的 bbl
 
-3. 执行 ``make sim``，也就是 ``spike bbl`` 就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
+3. 执行 ``make spike``，也就是 ``spike bbl`` 就可以在 spike 上执行我们的系统软件了，会依次启动 bootloader、linux 并挂载 initramfs
+
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 230-232
+	:caption: bbl 仿真启动
 
 .. code-block:: sh
 
-        riscv-spike-sdk$ make sim
-        /home/zyy/extend/riscv-spike-sdk/toolchain/bin/spike --isa=rv64imafdc_zifencei_zicsr_zicntr_zihpm /home/zyy/extend/riscv-spike-sdk/build/riscv-pk/bbl
-        bbl loader
+	riscv-spike-sdk$ make spike
+	/home/zyy/extend/riscv-spike-sdk/toolchain/bin/spike --isa=rv64imafdc_zifencei_zicsr_zicntr_zihpm /home/zyy/extend/riscv-spike-sdk/build/riscv-pk/bbl
+	bbl loader
 
 
-                        RISC-V Spike Simulator SDK
-
-                ___           ___           ___     
-               /\  \         /\  \         /\  \    
-              /  \  \       /  \  \       /  \  \   
-             / /\ \  \     / /\ \  \     / /\ \  \  
-            /  \~\ \  \   _\ \~\ \  \   _\ \~\ \  \ 
-           / /\ \ \ \__\ /\ \ \ \ \__\ /\ \ \ \ \__\
-           \/_|  \/ /  / \ \ \ \ \/__/ \ \ \ \ \/__/
-              | |  /  /   \ \ \ \__\    \ \ \ \__\  
-              | |\/__/     \ \/ /  /     \ \/ /  /  
-              | |  |        \  /  /       \  /  /   
-               \|__|         \/__/         \/__/ 
-     
+					RISC-V Spike Simulator SDK
 
 
-        [    0.000000] Linux version 6.6.2-ga06ca85b22f6 (zyy@zyy-OptiPlex-7060) (riscv64-unknown-linux-gnu-gcc (gc891d8dc2) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP Thu Nov 28 13:44:33 +08 2024
-        [    0.000000] Machine model: ucbbar,spike-bare
-        [    0.000000] SBI specification v0.1 detected
-        [    0.000000] earlycon: sbi0 at I/O port 0x0 (options '')
-        [    0.000000] printk: bootconsole [sbi0] enabled
-        [    0.000000] efi: UEFI not found.
-        ...
+	              ___           ___           ___     
+	             /\  \         /\  \         /\  \    
+	            /  \  \       /  \  \       /  \  \   
+	           / /\ \  \     / /\ \  \     / /\ \  \  
+	          /  \~\ \  \   _\ \~\ \  \   _\ \~\ \  \ 
+	         / /\ \ \ \__\ /\ \ \ \ \__\ /\ \ \ \ \__\
+	         \/_|  \/ /  / \ \ \ \ \/__/ \ \ \ \ \/__/
+	            | |  /  /   \ \ \ \__\    \ \ \ \__\  
+	            | |\/__/     \ \/ /  /     \ \/ /  /  
+	            | |  |        \  /  /       \  /  /   
+	             \|__|         \/__/         \/__/ 
+	
 
 
-        [    0.156925] 10000000.ns16550: ttyS0 at MMIO 0x10000000 (irq = 12, base_baud = 625000) is a 16550A
-        [    0.158655] NET: Registered PF_PACKET protocol family
-        [    0.164865] clk: Disabling unused clocks
-        [    0.167220] Freeing unused kernel image (initmem) memory: 8672K
-        [    0.174220] Run /init as init process
-        Saving 256 bits of non-creditable seed for next boot
-        Starting syslogd: OK
-        Starting klogd: OK
-        Running sysctl: OK
-        Starting network: OK
+	[    0.000000] Linux version 6.6.2-ga06ca85b22f6 (zyy@zyy-OptiPlex-7060) (riscv64-unknown-linux-gnu-gcc (gc891d8dc2) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP Thu Nov 28 13:44:33 +08 2024
+	[    0.000000] Machine model: ucbbar,spike-bare
+	[    0.000000] SBI specification v0.1 detected
+	[    0.000000] earlycon: sbi0 at I/O port 0x0 (options '')
+	[    0.000000] printk: bootconsole [sbi0] enabled
+	[    0.000000] efi: UEFI not found.
+	...
 
-        Welcome to Buildroot
-        buildroot login: root
-        root
-        # ls
-        ls
-        rgvlt_test.ko
-        #
+
+	[    0.156925] 10000000.ns16550: ttyS0 at MMIO 0x10000000 (irq = 12, base_baud = 625000) is a 16550A
+	[    0.158655] NET: Registered PF_PACKET protocol family
+	[    0.164865] clk: Disabling unused clocks
+	[    0.167220] Freeing unused kernel image (initmem) memory: 8672K
+	[    0.174220] Run /init as init process
+	Saving 256 bits of non-creditable seed for next boot
+	Starting syslogd: OK
+	Starting klogd: OK
+	Running sysctl: OK
+	Starting network: OK
+
+	Welcome to Buildroot
+	buildroot login: root
+	root
+	# ls
+	ls
+	rgvlt_test.ko
+	#
 
 opensbi
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -775,11 +720,12 @@ opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维�
 开始编译
 ---------------------------
 
-.. code-block:: Makefile
-
-        opensbi_srcdir := $(srcdir)/opensbi
-        opensbi_wrkdir := $(wrkdir)/opensbi
-        fw_jump := $(opensbi_wrkdir)/platform/generic/firmware/fw_jump.elf
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 41-43
+	:caption: opensbi 路径变量
 
 - repo/opensbi：opensbi 的源代码
 
@@ -787,107 +733,107 @@ opensbi 可以替代 bbl 充当 bootloader，并且 opensbi 现在还在被维�
 
 - build/opensbi/platform/generic/firmware/fw_jump.elf：opensbi 的编译结果
 
-.. code-block:: Makefile
-
-    $(fw_jump): $(opensbi_srcdir) $(linux_image) $(RISCV)/bin/$(target_linux)-gcc
-        rm -rf $(opensbi_wrkdir)
-        mkdir -p $(opensbi_wrkdir)
-        $(MAKE) -C $(opensbi_srcdir) FW_PAYLOAD_PATH=$(linux_image) PLATFORM=generic O=$(opensbi_wrkdir) CROSS_COMPILE=riscv64-unknown-linux-gnu-
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 164-167
+	:caption: opensbi 编译
 
 编译 opensbi，并且打包 linux image，最后的结果保存在 fw_jump.elf 当中
 
 模拟执行
 ----------------------------
 
-spike 模拟执行 ``make sim BL=opensbi`` 即可让 spike 执行 fw_jump.elf。
+spike 模拟执行 ``make spike BL=opensbi`` 即可让 spike 执行 fw_jump.elf。
 
-.. code-block:: Makefile
-
-    ifeq ($(BL),opensbi)
-    .PHONY: sim
-    sim: $(fw_jump) $(spike)
-        $(spike) --isa=$(ISA) -p4 --kernel $(linux_image) $(fw_jump)
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 220-222
+	:caption: opensbi 的仿真启动
 
 输出结果如下，除了 bootloader 阶段，后续和 bbl 无明显差异：
 
 .. code-block:: sh
 
-        /home/zyy/extend/riscv-spike-sdk/toolchain/bin/spike --isa=rv64imafdc_zifencei_zicsr -p4 --kernel /home/zyy/extend/riscv-spike-sdk/build/linux/arch/riscv/boot/Image /home/zyy/extend/riscv-spike-sdk/build/opensbi/platform/generic/firmware/fw_jump.elf
+	/home/zyy/extend/riscv-spike-sdk/toolchain/bin/spike --isa=rv64imafdc_zifencei_zicsr -p4 --kernel /home/zyy/extend/riscv-spike-sdk/build/linux/arch/riscv/boot/Image /home/zyy/extend/riscv-spike-sdk/build/opensbi/platform/generic/firmware/fw_jump.elf
 
-        OpenSBI v1.3
-           ____                    _____ ____ _____
-          / __ \                  / ____|  _ \_   _|
-         | |  | |_ __   ___ _ __ | (___ | |_) || |
-         | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
-         | |__| | |_) |  __/ | | |____) | |_) || |_
-          \____/| .__/ \___|_| |_|_____/|____/_____|
-                | |
-                |_|
+	OpenSBI v1.3
+		____                    _____ ____ _____
+		/ __ \                  / ____|  _ \_   _|
+		| |  | |_ __   ___ _ __ | (___ | |_) || |
+		| |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+		| |__| | |_) |  __/ | | |____) | |_) || |_
+		\____/| .__/ \___|_| |_|_____/|____/_____|
+			| |
+			|_|
 
-        Platform Name             : ucbbar,spike-bare
-        Platform Features         : medeleg
-        Platform HART Count       : 4
-        Platform IPI Device       : aclint-mswi
-        Platform Timer Device     : aclint-mtimer @ 10000000Hz
-        Platform Console Device   : uart8250
-        Platform HSM Device       : ---
-        Platform PMU Device       : ---
-        Platform Reboot Device    : htif
-        Platform Shutdown Device  : htif
-        Platform Suspend Device   : ---
-        Platform CPPC Device      : ---
-        Firmware Base             : 0x80000000
-        Firmware Size             : 352 KB
-        Firmware RW Offset        : 0x40000
-        Firmware RW Size          : 96 KB
-        Firmware Heap Offset      : 0x4e000
-        Firmware Heap Size        : 40 KB (total), 2 KB (reserved), 9 KB (used), 28 KB (free)
-        Firmware Scratch Size     : 4096 B (total), 328 B (used), 3768 B (free)
-        Runtime SBI Version       : 2.0
+	Platform Name             : ucbbar,spike-bare
+	Platform Features         : medeleg
+	Platform HART Count       : 4
+	Platform IPI Device       : aclint-mswi
+	Platform Timer Device     : aclint-mtimer @ 10000000Hz
+	Platform Console Device   : uart8250
+	Platform HSM Device       : ---
+	Platform PMU Device       : ---
+	Platform Reboot Device    : htif
+	Platform Shutdown Device  : htif
+	Platform Suspend Device   : ---
+	Platform CPPC Device      : ---
+	Firmware Base             : 0x80000000
+	Firmware Size             : 352 KB
+	Firmware RW Offset        : 0x40000
+	Firmware RW Size          : 96 KB
+	Firmware Heap Offset      : 0x4e000
+	Firmware Heap Size        : 40 KB (total), 2 KB (reserved), 9 KB (used), 28 KB (free)
+	Firmware Scratch Size     : 4096 B (total), 328 B (used), 3768 B (free)
+	Runtime SBI Version       : 2.0
 
-        Domain0 Name              : root
-        Domain0 Boot HART         : 0
-        Domain0 HARTs             : 0*,1*,2*,3*
-        Domain0 Region00          : 0x0000000010000000-0x0000000010000fff M: (I,R,W) S/U: (R,W)
-        Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
-        Domain0 Region02          : 0x0000000002080000-0x00000000020bffff M: (I,R,W) S/U: ()
-        Domain0 Region03          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
-        Domain0 Region04          : 0x0000000002000000-0x000000000207ffff M: (I,R,W) S/U: ()
-        Domain0 Region05          : 0x0000000000000000-0xffffffffffffffff M: () S/U: (R,W,X)
-        Domain0 Next Address      : 0x0000000080200000
-        Domain0 Next Arg1         : 0x0000000082200000
-        Domain0 Next Mode         : S-mode
-        Domain0 SysReset          : yes
-        Domain0 SysSuspend        : yes
+	Domain0 Name              : root
+	Domain0 Boot HART         : 0
+	Domain0 HARTs             : 0*,1*,2*,3*
+	Domain0 Region00          : 0x0000000010000000-0x0000000010000fff M: (I,R,W) S/U: (R,W)
+	Domain0 Region01          : 0x0000000080040000-0x000000008005ffff M: (R,W) S/U: ()
+	Domain0 Region02          : 0x0000000002080000-0x00000000020bffff M: (I,R,W) S/U: ()
+	Domain0 Region03          : 0x0000000080000000-0x000000008003ffff M: (R,X) S/U: ()
+	Domain0 Region04          : 0x0000000002000000-0x000000000207ffff M: (I,R,W) S/U: ()
+	Domain0 Region05          : 0x0000000000000000-0xffffffffffffffff M: () S/U: (R,W,X)
+	Domain0 Next Address      : 0x0000000080200000
+	Domain0 Next Arg1         : 0x0000000082200000
+	Domain0 Next Mode         : S-mode
+	Domain0 SysReset          : yes
+	Domain0 SysSuspend        : yes
 
-        Boot HART ID              : 0
-        Boot HART Domain          : root
-        Boot HART Priv Version    : v1.12
-        Boot HART Base ISA        : rv64imafdc
-        Boot HART ISA Extensions  : none
-        Boot HART PMP Count       : 16
-        Boot HART PMP Granularity : 4
-        Boot HART PMP Address Bits: 54
-        Boot HART MHPM Info       : 0 (0x00000000)
-        Boot HART MIDELEG         : 0x0000000000000222
-        Boot HART MEDELEG         : 0x000000000000b109
-        [    0.000000] Linux version 6.6.2-ga06ca85b22f6 (zyy@zyy-OptiPlex-7060) (riscv64-unknown-linux-gnu-gcc (gc891d8dc2) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP Thu Nov 28 13:44:33 +08 2024
-        [    0.000000] Machine model: ucbbar,spike-bare
-        [    0.000000] SBI specification v2.0 detected
-        ...
+	Boot HART ID              : 0
+	Boot HART Domain          : root
+	Boot HART Priv Version    : v1.12
+	Boot HART Base ISA        : rv64imafdc
+	Boot HART ISA Extensions  : none
+	Boot HART PMP Count       : 16
+	Boot HART PMP Granularity : 4
+	Boot HART PMP Address Bits: 54
+	Boot HART MHPM Info       : 0 (0x00000000)
+	Boot HART MIDELEG         : 0x0000000000000222
+	Boot HART MEDELEG         : 0x000000000000b109
+	[    0.000000] Linux version 6.6.2-ga06ca85b22f6 (zyy@zyy-OptiPlex-7060) (riscv64-unknown-linux-gnu-gcc (gc891d8dc2) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP Thu Nov 28 13:44:33 +08 2024
+	[    0.000000] Machine model: ucbbar,spike-bare
+	[    0.000000] SBI specification v2.0 detected
+	...
 
-        [    0.392630] NET: Registered PF_PACKET protocol family
-        [    0.398815] clk: Disabling unused clocks
-        [    0.401385] Freeing unused kernel image (initmem) memory: 8672K
-        [    0.443095] Run /init as init process
-        Saving 256 bits of non-creditable seed for next boot
-        Starting syslogd: OK
-        Starting klogd: OK
-        Running sysctl: OK
-        Starting network: OK
+	[    0.392630] NET: Registered PF_PACKET protocol family
+	[    0.398815] clk: Disabling unused clocks
+	[    0.401385] Freeing unused kernel image (initmem) memory: 8672K
+	[    0.443095] Run /init as init process
+	Saving 256 bits of non-creditable seed for next boot
+	Starting syslogd: OK
+	Starting klogd: OK
+	Running sysctl: OK
+	Starting network: OK
 
-        Welcome to Buildroot
-        buildroot login:
+	Welcome to Buildroot
+	buildroot login:
 
 
 磁盘制作
@@ -913,28 +859,28 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
 
 .. code-block:: sh
 
-        riscv-spike-sdk$ ls /dev | grep sd
-        sda
-        sda1
-        sda2
-        sda3
-        sda7
-        sda8
-        sda9
-        sdb
-        sdb1
-        sdb2
+	riscv-spike-sdk$ ls /dev | grep sd
+	sda
+	sda1
+	sda2
+	sda3
+	sda7
+	sda8
+	sda9
+	sdb
+	sdb1
+	sdb2
 
 现在我们对 sdb 这个 SD 卡进行重新分区，并且对每个分区的格式进行设置。执行的命令如下：
 
 .. code-block:: sh
 
-        sudo sgdisk --clear \
-                --new=1:2048:67583  --change-name=1:bootloader --typecode=1:2E54B353-1271-4842-806F-E436D6AF6985 \
-                --new=2:264192:     --change-name=2:root       --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 \
-                /dev/sdb
-        sudo dd if=./build/riscv-pk/bbl.bin of=/dev/sdb1 bs=4096
-        sudo mke2fs -t ext4 /dev/sdb2
+	sudo sgdisk --clear \
+			--new=1:2048:67583  --change-name=1:bootloader --typecode=1:2E54B353-1271-4842-806F-E436D6AF6985 \
+			--new=2:264192:     --change-name=2:root       --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 \
+			/dev/sdb
+	sudo dd if=./build/riscv-pk/bbl.bin of=/dev/sdb1 bs=4096
+	sudo mke2fs -t ext4 /dev/sdb2
 
 1. sgdisk 指令将 SD 卡化为两个分区，指定各自的大小、磁盘分区名和类型，第一个分区是存放二进制镜像，第二个分区存在挂载的文件系统
 
@@ -944,34 +890,34 @@ spike 执行系统程序的时候，它因为软件模拟的，可以随意的�
 
 .. code-block:: sh
 
-        riscv-spike-sdk$ sudo sgdisk --clear       --new=1:2048:67583  --change-name=1:bootloader --typecode=1:2E54B353-1271-4842-806F-E436D6AF6985       --new=2:264192:     --change-name=2:root       --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4       /dev/sdb
-        Setting name!
-        partNum is 0
-        Setting name!
-        partNum is 1
-        The operation has completed successfully.
-        
-        riscv-spike-sdk$ sudo dd if=./build/riscv-pk/bbl.bin of=/dev/sdb1 bs=4096
-        4361+1 records in
-        4361+1 records out
-        17865344 bytes (18 MB, 17 MiB) copied, 0.747458 s, 23.9 MB/s
+	riscv-spike-sdk$ sudo sgdisk --clear       --new=1:2048:67583  --change-name=1:bootloader --typecode=1:2E54B353-1271-4842-806F-E436D6AF6985       --new=2:264192:     --change-name=2:root       --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4       /dev/sdb
+	Setting name!
+	partNum is 0
+	Setting name!
+	partNum is 1
+	The operation has completed successfully.
+	
+	riscv-spike-sdk$ sudo dd if=./build/riscv-pk/bbl.bin of=/dev/sdb1 bs=4096
+	4361+1 records in
+	4361+1 records out
+	17865344 bytes (18 MB, 17 MiB) copied, 0.747458 s, 23.9 MB/s
 
-        riscv-spike-sdk$ sudo mke2fs -t ext4 /dev/sdb2
-        mke2fs 1.46.5 (30-Dec-2021)
-        /dev/sdb2 contains a ext4 filesystem
-                last mounted on /media/zyy/44290a65-fcf7-4bb6-ba14-e87c91385457 on Fri Nov 29 15:38:19 2024  
-        Proceed anyway? (y/N) y
-        Creating filesystem with 7758715 4k blocks and 1941504 inodes
-        Filesystem UUID: e1729867-d289-4d9c-9a82-df311ebd409e
-        Superblock backups stored on blocks:
-                32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
-                4096000
+	riscv-spike-sdk$ sudo mke2fs -t ext4 /dev/sdb2
+	mke2fs 1.46.5 (30-Dec-2021)
+	/dev/sdb2 contains a ext4 filesystem
+			last mounted on /media/zyy/44290a65-fcf7-4bb6-ba14-e87c91385457 on Fri Nov 29 15:38:19 2024  
+	Proceed anyway? (y/N) y
+	Creating filesystem with 7758715 4k blocks and 1941504 inodes
+	Filesystem UUID: e1729867-d289-4d9c-9a82-df311ebd409e
+	Superblock backups stored on blocks:
+			32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
+			4096000
 
-        Allocating group tables: done
-        Writing inode tables: done
-        Creating journal (32768 blocks):
-        done
-        Writing superblocks and filesystem accounting information: done
+	Allocating group tables: done
+	Writing inode tables: done
+	Creating journal (32768 blocks):
+	done
+	Writing superblocks and filesystem accounting information: done
 
 如果要在第二个分区挂载文件系统的话，需要两步操作：
 
