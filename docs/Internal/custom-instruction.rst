@@ -89,57 +89,30 @@ regvault 扩展了寄存器加解密指令 crexk、crdxk，指令格式如下：
 
 下述为csr index 编码宏，便于后续 csr 读写指令寻址 csr 寄存器使用，下面的十六个宏对应十六个 key 寄存器的编号。
 
-.. code-block:: text
-
-    +#define CSR_MCRMKEYL 0x7f0
-    +#define CSR_MCRMKEYH 0x7f1
-    +#define CSR_SCRTKEYL 0x5f0
-    +#define CSR_SCRTKEYH 0x5f1
-    +#define CSR_SCRAKEYL 0x5f2
-    +#define CSR_SCRAKEYH 0x5f3
-    +#define CSR_SCRBKEYL 0x5f4
-    +#define CSR_SCRBKEYH 0x5f5
-    +#define CSR_SCRCKEYL 0x5f6
-    +#define CSR_SCRCKEYH 0x5f7
-    +#define CSR_SCRDKEYL 0x5f8
-    +#define CSR_SCRDKEYH 0x5f9
-    +#define CSR_SCREKEYL 0x5fa
-    +#define CSR_SCREKEYH 0x5fb
-    +#define CSR_SCRFKEYL 0x5fc
-    +#define CSR_SCRFKEYH 0x5fd
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 192-207
+	:caption: 增加 CSR 编号宏定义
 
 增加 CSR 寄存器单元和对应的 csr 编码之间的对应关系。
 
-.. code-block:: text
-
-    +DECLARE_CSR(mcrmkeyl, CSR_MCRMKEYL)
-    +DECLARE_CSR(mcrmkeyh, CSR_MCRMKEYH)
-    +DECLARE_CSR(scrtkeyl, CSR_SCRTKEYL)
-    +DECLARE_CSR(scrtkeyh, CSR_SCRTKEYH)
-    +DECLARE_CSR(scrakeyl, CSR_SCRAKEYL)
-    +DECLARE_CSR(scrakeyh, CSR_SCRAKEYH)
-    +DECLARE_CSR(scrbkeyl, CSR_SCRBKEYL)
-    +DECLARE_CSR(scrbkeyh, CSR_SCRBKEYH)
-    +DECLARE_CSR(scrckeyl, CSR_SCRCKEYL)
-    +DECLARE_CSR(scrckeyh, CSR_SCRCKEYH)
-    +DECLARE_CSR(scrdkeyl, CSR_SCRDKEYL)
-    +DECLARE_CSR(scrdkeyh, CSR_SCRDKEYH)
-    +DECLARE_CSR(screkeyl, CSR_SCREKEYL)
-    +DECLARE_CSR(screkeyh, CSR_SCREKEYH)
-    +DECLARE_CSR(scrfkeyl, CSR_SCRFKEYL)
-    +DECLARE_CSR(scrfkeyh, CSR_SCRFKEYH)
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 264-279
+	:caption: 增加 CSR 寄存器和编号的对应关系
 
 增加 crexk、crdxk 指令的编码。如 opcode、funct3、funct7 的编码。
 
-.. code-block:: text
-
-    +#define MATCH_CRDXK 0x200006b
-    +#define MASK_CRDXK 0x200007f
-    +#define MATCH_CREXK 0x6b
-    +#define MASK_CREXK 0x200007f
-
-    +DECLARE_INSN(crdxk, MATCH_CRDXK, MASK_CRDXK)
-    +DECLARE_INSN(crexk, MATCH_CREXK, MASK_CREXK)
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 152-155
+	:caption: 增加 crexk、crdxk 的编码
 
 CSR 寄存器扩展
 -----------------------
@@ -154,101 +127,37 @@ CSR 寄存器扩展
 
 我们通过继承 csr_t 构造 key csr 的类 key_csr_t，然后重写上述上个虚函数接口，实现定制化的初始化、读、写。不过因为 key 寄存器功能非常简单，所以其实覆写实现也很简单。
 
-.. code-block:: text
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 22-43
+	:caption: 增加 key csr 的声明
 
-    --- a/riscv/csrs.h
-    +++ b/riscv/csrs.h
-    @@ -843,4 +843,19 @@ class smcntrpmf_csr_t : public masked_csr_t {
-        private:
-        std::optional<reg_t> prev_val;
-    };
-    +
-    +class key_csr_t: public csr_t {
-    + public:
-    +  key_csr_t(processor_t* const proc, const reg_t addr, const reg_t init);
-    +
-    +  virtual reg_t read() const noexcept override {
-    +    return val;
-    +  }
-    +
-    + protected:
-    +  virtual bool unlogged_write(const reg_t val) noexcept override;
-    + private:
-    +  reg_t val;
-    +};
-    +
-    #endif
-
-    --- a/riscv/csrs.cc
-    +++ b/riscv/csrs.cc
-    @@ -1692,3 +1692,13 @@ bool smcntrpmf_csr_t::unlogged_write(const reg_t val) noexcept {
-        prev_val = read();
-        return masked_csr_t::unlogged_write(val);
-    }
-    +
-    +key_csr_t::key_csr_t(processor_t* const proc, const reg_t addr, const reg_t init):    
-    +  csr_t(proc, addr),
-    +  val(init) {
-    +}
-    +
-    +bool key_csr_t::unlogged_write(const reg_t val) noexcept {
-    +  this->val = val;
-    +  return true;
-    +}
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 3-18
+	:caption: 增加 key csr 的定义
 
 之后我们在处理器中实例化这些寄存器，修改 riscv/processor.h 中的 starst_t，定义对应的寄存器变量：
 
-.. code-block:: text
-
-    --- a/riscv/processor.h
-    +++ b/riscv/processor.h
-    @@ -111,6 +111,22 @@ struct state_t
-    csr_t_p stvec;
-    virtualized_csr_t_p satp;
-    csr_t_p scause;
-    +  csr_t_p mcrmkeyh;
-    +  csr_t_p mcrmkeyl;
-    +  csr_t_p scrakeyh;
-    +  csr_t_p scrakeyl;
-    +  csr_t_p scrbkeyh;
-    +  csr_t_p scrbkeyl;
-    +  csr_t_p scrckeyh;
-    +  csr_t_p scrckeyl;
-    +  csr_t_p scrdkeyh;
-    +  csr_t_p scrdkeyl;
-    +  csr_t_p screkeyh;
-    +  csr_t_p screkeyl;
-    +  csr_t_p scrfkeyh;
-    +  csr_t_p scrfkeyl;
-    +  csr_t_p scrtkeyh;
-    +  csr_t_p scrtkeyl;
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 496-517
+	:caption: 在 state_t 增加 key 寄存器
 
 最后我们在 processor.cc 中的 csrmap 散列表注册对应的寄存器，这样之后执行 csr 读写指令的时候就可以根据 csr 的标号快速定位要处理的 csr 寄存器。
 
-.. code-block:: text
-
-    --- a/riscv/processor.cc
-    +++ b/riscv/processor.cc
-    @@ -585,6 +585,23 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
-        }
-    }
-
-    +  csrmap[CSR_MCRMKEYH] = std::make_shared<key_csr_t>(proc, CSR_MCRMKEYH, 0);
-    +  csrmap[CSR_MCRMKEYL] = std::make_shared<key_csr_t>(proc, CSR_MCRMKEYL, 0);
-    +  csrmap[CSR_SCRAKEYH] = std::make_shared<key_csr_t>(proc, CSR_SCRAKEYH, 0);
-    +  csrmap[CSR_SCRAKEYL] = std::make_shared<key_csr_t>(proc, CSR_SCRAKEYL, 0);
-    +  csrmap[CSR_SCRBKEYH] = std::make_shared<key_csr_t>(proc, CSR_SCRBKEYH, 0);
-    +  csrmap[CSR_SCRBKEYL] = std::make_shared<key_csr_t>(proc, CSR_SCRBKEYL, 0);
-    +  csrmap[CSR_SCRCKEYH] = std::make_shared<key_csr_t>(proc, CSR_SCRCKEYH, 0);
-    +  csrmap[CSR_SCRCKEYL] = std::make_shared<key_csr_t>(proc, CSR_SCRCKEYL, 0);
-    +  csrmap[CSR_SCRDKEYH] = std::make_shared<key_csr_t>(proc, CSR_SCRDKEYH, 0);
-    +  csrmap[CSR_SCRDKEYL] = std::make_shared<key_csr_t>(proc, CSR_SCRDKEYL, 0);
-    +  csrmap[CSR_SCREKEYH] = std::make_shared<key_csr_t>(proc, CSR_SCREKEYH, 0);
-    +  csrmap[CSR_SCREKEYL] = std::make_shared<key_csr_t>(proc, CSR_SCREKEYL, 0);
-    +  csrmap[CSR_SCRFKEYH] = std::make_shared<key_csr_t>(proc, CSR_SCRFKEYH, 0);
-    +  csrmap[CSR_SCRFKEYL] = std::make_shared<key_csr_t>(proc, CSR_SCRFKEYL, 0);
-    +  csrmap[CSR_SCRTKEYH] = std::make_shared<key_csr_t>(proc, CSR_SCRTKEYH, 0);
-    +  csrmap[CSR_SCRTKEYL] = std::make_shared<key_csr_t>(proc, CSR_SCRTKEYL, 0);
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 468-489
+	:caption: 根据 csr 编号快速访问 csr
 
 crexk、crdxk 指令扩展
 ---------------------------------
@@ -257,20 +166,14 @@ crexk、crdxk 指令扩展
 
 修改 riscv/decode.h 的 insn_t 的类，对指令编码的解码函数进行扩展，便于快速的获得 e、s、x 对应的 field。这里增加了 rgvlt_startb 和 rgvlt_endb 函数来获得 e、s 的 bit。
 
-.. code-block:: text
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 46-53
+	:caption: 增加译码支持
 
-    diff --git a/riscv/decode.h b/riscv/decode.h
-    index cd1c0a1..0e05b2b 100644
-    --- a/riscv/decode.h
-    +++ b/riscv/decode.h
-    @@ -93,6 +93,8 @@ public:
-        uint64_t iorw() { return x(20, 8); }
-        uint64_t bs() { return x(30, 2); } // Crypto ISE - SM4/AES32 byte select.
-        uint64_t rcon() { return x(20, 4); } // Crypto ISE - AES64 round const.
-    +  uint64_t rgvlt_startb() { return x(26, 3); }
-    +  uint64_t rgvlt_endb() { return x(29, 3); }
-
-然后是指令功能的实现部分。这里并不是给每个指令都实现一个函数，每个函数实现的主体部分被定义在 riscv/insn 文件夹下对应的 h 中，之前 encoding 对每个函数定义了一个 DECLARE_INSN 宏，这个宏会构造函数的主体并且 include 这里的头文件得到最后的函数体。我们可以看一下 crexk 的实现：
+然后是指令功能的实现部分。这里并不是给每个指令都实现一个函数，每个函数实现的主体部分被定义在 riscv/insn 文件夹下对应的 h 中。我们可以看一下 crexk 的实现：
 
 * 通过 insn 的函数得到对应的 x、s、e 字段
 * 通过 p->set_csr 得到对应的 keyl、keyh
@@ -279,87 +182,23 @@ crexk、crdxk 指令扩展
 * 最后用 WRITE_RD 函数将 计算结果写回 RD
 * qarma64_enc 的具体实现参见对应的函数实现
 
-.. code-block:: text
-
-    --- /dev/null
-    +++ b/riscv/insns/crexk.h
-    @@ -0,0 +1,74 @@
-    +// #include "qarma.h"
-    +uint64_t sel_key = insn.rm();
-    +uint64_t startbit = insn.rgvlt_startb() * 8;
-    +uint64_t endbit = (insn.rgvlt_endb() + 1) * 8 - 1;
-    +
-    +if (endbit < startbit)
-    +    throw trap_illegal_instruction(insn.bits());
-    +
-    +uint64_t totbits = endbit - startbit + 1;
-    +uint64_t mask = totbits == 64 ? ~(uint64_t)0 :\
-    +    ((((uint64_t)1 << totbits) - 1) << startbit);
-    +uint64_t plain = RS1;
-    +uint64_t text = plain & mask;
-    +
-    +uint64_t tweak = RS2;
-    +
-    +int keyl = 0;
-    +int keyh = 0;
-    +int round = 7;
-    +
-    +switch (sel_key)
-    +{
-    +case 0:
-    +    /* stkey */
-    +    keyl = 0x5F0;
-    +    keyh = 0x5F1;
-    +    break;
-    +case 1:
-    +    /* mkey */
-    +    keyl = 0x7F0;
-    +    keyh = 0x7F1;
-    +    break;
-    +case 2:
-    +    /* sakey */
-    +    keyl = 0x5F2;
-    +    keyh = 0x5F3;
-    +    break;
-    +case 3:
-    +    /* sbkey */
-    +    keyl = 0x5F4;
-    +    keyh = 0x5F5;
-    +    break;
-    +case 4:
-    +    /* sckey */
-    +    keyl = 0x5F6;
-    +    keyh = 0x5F7;
-    +    break;
-    +case 5:
-    +    /* sdkey */
-    +    keyl = 0x5F8;
-    +    keyh = 0x5F9;
-    +    break;
-    +case 6:
-    +    /* sekey */
-    +    keyl = 0x5Fa;
-    +    keyh = 0x5Fb;
-    +    break;
-    +case 7:
-    +    /* sfkey */
-    +    keyl = 0x5Fc;
-    +    keyh = 0x5Fd;
-    +    break;
-    +
-    +default:
-    +    throw trap_illegal_instruction(insn.bits());
-    +    break;
-    +}
-    +// keyh = 0x5f1;
-    +// keyl = 0x5f0;
-    +
-    +uint64_t w0 = sext_xlen(p->get_csr(keyh, insn, false));
-    +uint64_t k0 = sext_xlen(p->get_csr(keyl, insn, false));
-    +uint64_t cipher = qarma64_enc(text, tweak, w0, k0, round);
-    +WRITE_RD(cipher);
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 306-385
+	:caption: crexk 的实现
 
 crxdk 的实现类似，只不过多了一些校验过程。
+
+之后在 riscv/encoding 对 crexk、crdxk 分别定义了一个 DECLARE_INSN 宏，这个宏会构造函数的主体并且 include 这里的头文件得到最后的函数体：
+
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 233-234
+	:caption: 增加 crexk、crdxk 的函数实现
 
 编译文件的注册
 ------------------------------
@@ -370,34 +209,12 @@ crxdk 的实现类似，只不过多了一些校验过程。
 * 修改 riscv_srcs 可以加入新的源文件
 * 修改 riscv_insn_ext_i 可以加入新的指令构造
 
-.. code-block:: text
-
-    diff --git a/riscv/riscv.mk.in b/riscv/riscv.mk.in
-    index 76c2ed7..b3cfcd4 100644
-    --- a/riscv/riscv.mk.in
-    +++ b/riscv/riscv.mk.in
-    @@ -44,6 +44,7 @@ riscv_install_hdrs = \
-        trap.h \
-        triggers.h \
-        vector_unit.h \
-    +	qarma.h \
-    
-    riscv_precompiled_hdrs = \
-        insn_template.h \
-    @@ -72,6 +73,7 @@ riscv_srcs = \
-        vector_unit.cc \
-        socketif.cc \
-        cfg.cc \
-    +	qarma.cc \
-        $(riscv_gen_srcs) \
-    
-    riscv_test_srcs = \
-    @@ -133,6 +135,8 @@ riscv_insn_ext_i = \
-        xori \
-        fence \
-        fence_i \
-    +	crexk \
-    +	crdxk \
+.. remotecode:: ../_static/tmp/regvault_spike_patch
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/conf/spike.patch.1
+	:language: text
+	:type: github-permalink
+	:lines: 875-899
+	:caption: 增加对新增文件的编译
 
 软件的 custom 指令实现
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -447,36 +264,12 @@ PointerEncryption 模块继承 LazyRoCC，来作为加解密引擎 RoCC 的参�
 * RoCC 为 RoCCImp 提供一个额外的 nRoCCCSRs 参数，传递 CustomCSR 的个数
 * 调用 PointerEncryptionMultiCycleImp 实现 PointerEncryption 的实际电路部分
 
-.. code-block:: text
-
-    +++ b/src/main/scala/rocc/PointerEncryption.scala
-    @@ -0,0 +1,276 @@
-    +package freechips.rocketchip.rocc.pec
-    +
-    +class PointerEncryption(opcodes: OpcodeSet)(implicit p: Parameters)
-    +    extends LazyRoCC(opcodes)
-    +    with HasCoreParameters {
-    +      override val roccCSRs = Seq(
-    +        CustomCSR(0x5f0,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f1,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x7f0,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x7f1,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f2,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f3,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f4,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f5,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f6,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f7,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f8,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5f9,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5fa,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5fb,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5fc,BigInt(1),Some(BigInt(0))),
-    +        CustomCSR(0x5fd,BigInt(1),Some(BigInt(0)))
-    +      )
-    +      val nRoCCCSRs = roccCSRs.size
-    +      override lazy val module = new PointerEncryptionMultiCycleImp(this)
-    +}
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 5-39
+	:caption: PointerEncryption
 
 PointerEncryptionMultiCycleImp 是 PointerEncryption 的硬件实现，负责接受来自 PointerEncryption 的参数，实现对应的电路。
 
@@ -490,15 +283,12 @@ PointerEncryptionMultiCycleImp 是 PointerEncryption 的硬件实现，负责接
   * 一组是 RoCC 和 Pipeline 之间的输入输出，负责接收 custom inst 请求，返回对应的结果，参见 RoCCIO 和 RoCCCoreIO 类。
   * 一组是 RoCC 和 CSR 之间的输入输出，负责 CustomCSR 之间的数据传输，参见 CustomCSRs.scala 的 CustomCSRIO 类。
 
-.. code-block:: text
-
-    +class PointerEncryptionMultiCycleImp(outer: PointerEncryption)(implicit p: Parameters)
-    +  extends LazyRoCCModuleImp(outer)
-    +  with HasCoreParameters
-    +{
-    +  val pec_engine = Module(new QarmaMultiCycle(7,3))
-    +  val cache = Module(new QarmaCache(8,"Stack"))
-    +
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 131-136
+	:caption: PointerEncryptionMultiCycleImp
 
 加解密模块的各个子模块我们编写在 repo/rocket-chip/src/main/scala/rocc 的 PointerEncryption.scala 和 QARMA.scala，我们做一个简单的罗列。具体实现可以自行阅读。
 
@@ -530,107 +320,51 @@ CustomCSR 的调整
 * writeCustomCSR 中的 mask 修改为全 1，因为 Key 寄存器的所有位都可以被直接修改；理论上应该从 csr.mask 参数传递，但是 csr.mask 似乎不能设置 64 位的整数，就只能这样简单解决了
 * setCustomCSR 对 mask 的修改和 writeCustomCSR 同理
 
-.. code-block:: text
-
-    diff --git a/src/main/scala/rocket/CSR.scala b/src/main/scala/rocket/CSR.scala
-    index e8cd587ef..759cdfafe 100644
-    --- a/src/main/scala/rocket/CSR.scala
-    +++ b/src/main/scala/rocket/CSR.scala
-    @@ -901,7 +901,7 @@ class CSRFile(
-        io_dec.fp_illegal := io.status.fs === 0.U || reg_mstatus.v && reg_vsstatus.fs === 0.U || !reg_misa('f'-'a')
-        io_dec.vector_illegal := io.status.vs === 0.U || reg_mstatus.v && reg_vsstatus.vs === 0.U || !reg_misa('v'-'a')
-        io_dec.fp_csr := decodeFast(fp_csrs.keys.toList)
-    -    io_dec.rocc_illegal := io.status.xs === 0.U || reg_mstatus.v && reg_vsstatus.xs === 0.U || !reg_misa('x'-'a')
-    +    io_dec.rocc_illegal := false.B
-        val csr_addr_legal = reg_mstatus.prv >= CSR.mode(addr) ||
-        usingHypervisor.B && !reg_mstatus.v && reg_mstatus.prv === PRV.S.U && CSR.mode(addr) === PRV.H.U
-        val csr_exists = decodeAny(read_mapping)
-    @@ -1479,7 +1479,7 @@ class CSRFile(
-        }
-        }
-        def writeCustomCSR(io: CustomCSRIO, csr: CustomCSR, reg: UInt) = {
-    -      val mask = csr.mask.U(xLen.W)
-    +      val mask = Fill(64,1.U(1.W))//csr.mask.U(xLen.W)
-        when (decoded_addr(csr.id)) {
-            reg := (wdata & mask) | (reg & ~mask)
-            io.wen := true.B
-    @@ -1504,7 +1504,7 @@ class CSRFile(
-    }
-    
-    def setCustomCSR(io: CustomCSRIO, csr: CustomCSR, reg: UInt) = {
-    -    val mask = csr.mask.U(xLen.W)
-    +    val mask = Fill(64,1.U(1.W))//csr.mask.U(xLen.W)
-        when (io.set) {
-        reg := (io.sdata & mask) | (reg & ~mask)
-        }
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 937-965
+	:caption: CustomCSR 读写行为调整
 
 对于早期的 Rocket-chip 有一个需要调整的 bug，但是在后期的 Rocket-chip 中已经修复了。rocc 的 csrs 既有输入也有输出，所以在和 roccCSRIOs 链接的时候需要用 ``<>`` 而不是简单的 ``:=`` 符号。  
 
-.. code-block:: text
-
-    diff --git a/src/main/scala/tile/RocketTile.scala b/src/main/scala/tile/RocketTile.scala
-    index 2527e135e..930d803e3 100644
-    --- a/src/main/scala/tile/RocketTile.scala
-    +++ b/src/main/scala/tile/RocketTile.scala
-    @@ -185,7 +185,7 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
-        core.io.rocc.resp <> respArb.get.io.out
-        core.io.rocc.busy <> (cmdRouter.get.io.busy || outer.roccs.map(_.module.io.busy).reduce(_ || _))
-        core.io.rocc.interrupt := outer.roccs.map(_.module.io.interrupt).reduce(_ || _)
-    -    (core.io.rocc.csrs zip roccCSRIOs.flatten).foreach { t => t._2 := t._1 }
-    +    (core.io.rocc.csrs zip roccCSRIOs.flatten).foreach { t => t._2 <> t._1 }
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 1082-1089
+	:caption: CustomCSR 连接 bug 修复
 
 扩展指令的调整
 --------------------------
 
 我们需要在 CustomInstructions 模块中加入我们自定义的 PECInst 指令的编码，告诉 Rocket-chip 我们定义了这个指令。
 
-.. code-block:: text
-
-    diff --git a/src/main/scala/rocket/CustomInstructions.scala b/src/main/scala/rocket/CustomInstructions.scala
-    index b4cada00b..340cbe570 100644
-    --- a/src/main/scala/rocket/CustomInstructions.scala
-    +++ b/src/main/scala/rocket/CustomInstructions.scala
-    @@ -34,6 +34,7 @@ object CustomInstructions {
-    def CUSTOM3_RD         = BitPat("b?????????????????100?????1111011")
-    def CUSTOM3_RD_RS1     = BitPat("b?????????????????110?????1111011")
-    def CUSTOM3_RD_RS1_RS2 = BitPat("b?????????????????111?????1111011")
-    +  def PECInst            = BitPat("b?????????????????????????1101011")
-    }
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 968-975
+	:caption: rocc 增加 regvault custom 指令
 
 之后我们在 IDecode 模块中加入 PECInst 指令的译码表，这里用和其他的 R 型指令 RoCC 一样的译码信号就可以了。
 
-.. code-block:: text
-
-    diff --git a/src/main/scala/rocket/IDecode.scala b/src/main/scala/rocket/IDecode.scala
-    index 50db5dda9..ec782ea45 100644
-    --- a/src/main/scala/rocket/IDecode.scala
-    +++ b/src/main/scala/rocket/IDecode.scala
-    @@ -736,5 +736,7 @@ class RoCCDecode(aluFn: ALUFN = ALUFN())(implicit val p: Parameters) extends Dec
-        CUSTOM3_RS1_RS2->   List(Y,N,Y,N,N,N,Y,Y,N,N,N,A2_ZERO,A1_RS1, IMM_X, DW_XPR,aluFn.FN_ADD,   N,M_X,N,N,N,N,N,N,N,CSR.N,N,N,N,N),
-        CUSTOM3_RD->        List(Y,N,Y,N,N,N,N,N,N,N,N,A2_ZERO,A1_RS1, IMM_X, DW_XPR,aluFn.FN_ADD,   N,M_X,N,N,N,N,N,N,Y,CSR.N,N,N,N,N),
-        CUSTOM3_RD_RS1->    List(Y,N,Y,N,N,N,N,Y,N,N,N,A2_ZERO,A1_RS1, IMM_X, DW_XPR,aluFn.FN_ADD,   N,M_X,N,N,N,N,N,N,Y,CSR.N,N,N,N,N),
-    -    CUSTOM3_RD_RS1_RS2->List(Y,N,Y,N,N,N,Y,Y,N,N,N,A2_ZERO,A1_RS1, IMM_X, DW_XPR,aluFn.FN_ADD,   N,M_X,N,N,N,N,N,N,Y,CSR.N,N,N,N,N))
-    +    CUSTOM3_RD_RS1_RS2->List(Y,N,Y,N,N,N,Y,Y,N,N,N,A2_ZERO,A1_RS1, IMM_X, DW_XPR,aluFn.FN_ADD,   N,M_X,N,N,N,N,N,N,Y,CSR.N,N,N,N,N),
-    +    PECInst           ->List(Y,N,Y,N,N,N,Y,Y,N,N,N,A2_ZERO,A1_RS1, IMM_X, DW_XPR,aluFn.FN_ADD,   N,M_X,N,N,N,N,N,N,Y,CSR.N,N,N,N,N)
-    +  )
-    }
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 988-997
+	:caption: 增加 regvault 指令译码
 
 对于 RoCC 支持的 OpcodeSet 进行扩展，增加 regvault 扩展指令对应的 opcode set
 
-.. code-block:: text
-
-    diff --git a/src/main/scala/tile/LazyRoCC.scala b/src/main/scala/tile/LazyRoCC.scala
-    index c0218d003..69f681d69 100644
-    --- a/src/main/scala/tile/LazyRoCC.scala
-    +++ b/src/main/scala/tile/LazyRoCC.scala
-    @@ -402,7 +402,8 @@ object OpcodeSet {
-    def custom1 = new OpcodeSet(Seq("b0101011".U))
-    def custom2 = new OpcodeSet(Seq("b1011011".U))
-    def custom3 = new OpcodeSet(Seq("b1111011".U))
-    -  def all = custom0 | custom1 | custom2 | custom3
-    +  def pec_ext = new OpcodeSet(Seq("b1101011".U))
-    +  def all = custom0 | custom1 | custom2 | custom3 | pec_ext
-    }
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 1068-1077
+	:caption: 扩展 OpcodeSet
 
 处理器生成的配置调整
 --------------------------
@@ -639,17 +373,12 @@ CustomCSR 的调整
 
 在 subsystem/Config.scala 中定义配置 WithPECRoCC。该模块会让 BuildRoCC 这个参数的值变为实例化的 pec_engine。
 
-.. code-block:: text
-
-    +class WithPECRocc extends Config((site, here, up) => {
-    +  case BuildRoCC => List(
-    +    (p: Parameters) => {
-    +        import freechips.rocketchip.rocc.pec._
-    +        val pec_engine = LazyModule(new PointerEncryption(OpcodeSet.pec_ext)(p))
-    +        pec_engine
-    +    })
-    +})
-    +
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 1036-1043
+	:caption: 增加 rocc 实例化配置
 
 之后我们对 repo/starship 中的配置进行修改，为 StarshipBaseConfig 增加 ``new WithPECRocc ++``。
 这样实例化 starship 的 RoCC 的时候就会生成 pec_engine，并且做模块间的连接。
@@ -659,24 +388,12 @@ CustomCSR 的调整
 
 为了让处理器可以匹配比较新的内核版本，需要支持 5 级页表，而不是 3 级页表，我们对 subsystem/Configs.scala 做修改，将 PgLevels 的值从 3 改为 5。
 
-.. code-block:: text
-
-    diff --git a/src/main/scala/subsystem/Configs.scala b/src/main/scala/subsystem/Configs.scala
-    index 7b4a8368a..d37fdd14c 100644
-    --- a/src/main/scala/subsystem/Configs.scala
-    +++ b/src/main/scala/subsystem/Configs.scala
-    @@ -14,7 +14,7 @@ import freechips.rocketchip.util._
-    
-    class BaseSubsystemConfig extends Config ((site, here, up) => {
-    // Tile parameters
-    -  case PgLevels => if (site(XLen) == 64) 3 /* Sv39 */ else 2 /* Sv32 */
-    +  case PgLevels => if (site(XLen) == 64) 5 /* Sv57 */ else 2 /* Sv32 */
-    case XLen => 64 // Applies to all cores
-    case MaxHartIdBits => log2Up((site(TilesLocated(InSubsystem)).map(_.tileParams.hartId) :+ 0).max+1)
-    // Interconnect parameters
-    @@ -367,6 +367,15 @@ class WithRoccExample extends Config((site, here, up) => {
-        })
-    })
+.. remotecode:: ../_static/tmp/regvault_starship_patch
+	:url: https://github.com/sycuricon/starship/blob/a36a8eedeeafb4e377583e70594499a28cccb9bb/patch/regvault/1.patch
+	:language: text
+	:type: github-permalink
+	:lines: 1021-1029
+	:caption: 修改为 5 级页表
 
 之后我们执行 ``make vlt`` 或者 ``make bitstream`` 就可以得到有 regvault 指令扩展的程序了。
 
@@ -694,63 +411,9 @@ RoCC 的实现存在两个局限性：
 
 下板执行的时候，因为 key 寄存器只能在 S 态、M 态进行修改，我们可以用一个简单 kernel module 来解决这个问题。我们在 riscv-spike-sdk 的 regvault 分支实现了一个 regvault kernel module，在初始化函数中加入对 key 寄存器的修改，和对数据的加密解密。通过比对输出的加解密结果是否正确，从而检查下板之后加解密模块是否正确。
 
-.. code-block:: C
-
-    static int __init rgvlt_init(void) {
-        text_t plaintext = 0xfb623599da6e8127;
-        qkey_t w0 = 0x84be85ce9804e94b;
-        qkey_t k0 = 0xec2802d4e0a488e9;
-        tweak_t tweak = 0x477d469dec0b8762;
-        text_t ciphertext;
-
-        printk(KERN_INFO "QARMA64  Plaintext = 0x%016llx\nKey = 0x%016llx || 0x%016llx\nTweak = 0x%016llx\n\n", plaintext, w0, k0, tweak);
-
-        asm volatile (
-                "csrw 0x5f0, %[k0]\n"
-                "csrw 0x5f1, %[w0]\n"
-                :
-                :[w0] "r" (w0), [k0] "r" (k0)
-                :
-        );
-        printk(KERN_INFO "k0, w0 write done\n");
-
-        qkey_t read_k0 = 0;
-        qkey_t read_w0 = 0;
-        asm volatile (
-                "csrr %[read_k0], 0x5f0\n"
-                "csrr %[read_w0], 0x5f1\n"
-                :[read_w0] "=r" (read_w0), [read_k0] "=r" (read_k0)
-                :
-                :
-        );
-        printk(KERN_INFO "read_w0 = 0x%llx, read_k0 = 0x%llx", read_w0, read_k0);
-
-        asm volatile (
-                "csrw 0x5f0, %[k0]\n"
-                "csrw 0x5f1, %[w0]\n"
-                "mv t0, %[plaintext]\n"
-                "mv t1, %[tweak]\n"
-                "li t2, 0\n"
-                ".insn r 0x6b, 0x0, 0x54, t2, t0, t1\n"
-                "mv %[ciphertext], t2\n"
-                :[ciphertext] "=r" (ciphertext)
-                :[tweak] "r" (tweak), [plaintext] "r" (plaintext), [w0] "r" (w0), [k0] "r" (k0)
-                :"t0", "t1", "t2"
-        );
-
-        printk(KERN_INFO "Ciphertext = 0x%016llx", ciphertext);
-
-        text_t decrypttext;
-        asm volatile (
-                "mv t0, %[ciphertext]\n"
-                "mv t1, %[tweak]\n"
-                "li t2, 0\n"
-                ".insn r 0x6b, 0x0, 0x55, t2, t0, t1\n"
-                "mv %[decrypttext], t2\n"
-                :[decrypttext] "=r" (decrypttext)
-                :[ciphertext] "r" (ciphertext), [tweak] "r" (tweak)
-                :"t0", "t1", "t2"
-        );
-        printk(KERN_INFO "Decrypttext  = 0x%016llx\n", decrypttext);
-        return 0;
-    }
+.. remotecode:: ../_static/tmp/regvault_kernel_module
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/82c596f4854ae3d6a8fe66d764e9125d2e374e44/test/rgvlt_test.c
+	:language: C
+	:type: github-permalink
+	:lines: 27-84
+	:caption: 测试 regvault 的内核模块
