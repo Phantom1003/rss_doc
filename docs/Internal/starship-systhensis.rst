@@ -61,11 +61,13 @@ starship 的目录结构如下：
 
 注意这里的路径最好用绝对路径，如果不设置 riscv 变量，makefile 也会亲切地给出报错。
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 13-15
+	:caption: RISCV 设置检查
 
-    ifndef RISCV
-        $(error $$RISCV is undefined, please set $$RISCV to your riscv-toolchain)
-    endif
 
 内核配置选择
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,19 +129,12 @@ Verilog 编译
 
 首先我们来看生成 verilog 的时候使用的配置。
 
-.. code-block:: Makefile
-
-    #######################################
-    #
-    #         Verilog Generator
-    #
-    #######################################
-
-    ROCKET_TOP      := $(STARSHIP_TH)
-    ROCKET_CONF     := starship.With$(STARSHIP_CORE)Core,$(STARSHIP_CONFIG),starship.With$(STARSHIP_FREQ)MHz        
-    ROCKET_SRC      := $(SRC)/rocket-chip
-    ROCKET_BUILD    := $(BUILD)/rocket-chip
-    ROCKET_SRCS     := $(shell find $(TOP) -name "*.scala")
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 41-51
+	:caption: Verilog 生成的配置和变量
 
 * ROCKET_TOP：最终要生成顶层模块 starship.fpga.TestHarness 
 * ROCKET_CONF：生成 rocket 使用的配置 starship.WithRocketCore, starship.fpga.StarshipFPGAConfig, starship.With100MHz
@@ -162,56 +157,28 @@ verilog 生成流程-代码部分
 
 我们来看一下 “verilog 生成流程-代码部分” 涉及的执行流程，首先执行如下的 Makefile：
 
-.. code-block:: Makefile
-
-    ROCKET_OUTPUT           := $(STARSHIP_CORE).$(lastword $(subst ., ,$(STARSHIP_TOP))).$(lastword $(subst ., ,$(STARSHIP_CONFIG)))ROCKET_FIRRTL   := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).fir
-    ROCKET_FIRRTL           := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).fir
-    ROCKET_ANNO             := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).anno.json
-    ROCKET_DTS              := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).dts
-    ROCKET_ROMCONF          := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).rom.conf
-    ROCKET_TOP_VERILOG      := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).top.v
-    ROCKET_TH_VERILOG       := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).testharness.v
-    ROCKET_TOP_INCLUDE      := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).top.f
-    ROCKET_TH_INCLUDE       := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).testharness.f
-    ROCKET_TOP_MEMCONF      := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).sram.top.conf
-    ROCKET_TH_MEMCONF       := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).sram.testharness.conf
-
-    $(ROCKET_FIRRTL) $(ROCKET_DTS) $(ROCKET_ROMCONF) $(ROCKET_ANNO)&: $(ROCKET_SRCS)
-        mkdir -p $(ROCKET_BUILD)
-        sbt "runMain starship.utils.stage.FIRRTLGenerator \
-                --dir $(ROCKET_BUILD) \
-                --top $(ROCKET_TOP) \
-                --config $(ROCKET_CONF) \
-                --name $(ROCKET_OUTPUT)"
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 52-72
+	:caption: Verilog 中间文件生成
 
 这部分 target 调用 sbt 编译 rocket-chip 相关的源代码，生成 testHarness 相关的 fir 的中间代码，得到四个重要的中间文件：
 
-* Rocket.StarshipFPGATop.StarshipFPGAConfig.anno.json：每个 class 生成过程中的额外 annonation 内容，用于后期进一步生成 Verilog
 * Rocket.StarshipFPGATop.StarshipFPGAConfig.dts：生成的设备树，用于后续生成固件和系统软件
 * Rocket.StarshipFPGATop.StarshipFPGAConfig.rom.conf：生成 Maskrom 的 memory 配置
-* Rocket.StarshipFPGATop.StarshipFPGAConfig.fir：testHarness 的中间代码表示，chisel 先生成 fir，之后 fir 再生成 verilog 
+* Rocket.StarshipFPGATop.StarshipFPGAConfig.anno.json：每个 class 生成过程中的额外 annonation 内容，用于后期进一步生成 Verilog
+* Rocket.StarshipFPGATop.StarshipFPGAConfig.fir：testHarness 的中间代码表示，chisel 先生成 fir，之后 fir 再生成 verilog
 
 之后执行 target 得到 top 和 testHarness 的 verilog，分别生成 top 和 testHarness 的 verilog 代码，并且生成其他一系列的代码：
 
-.. code-block:: Makefile
-
-    $(ROCKET_TOP_VERILOG) $(ROCKET_TOP_INCLUDE) $(ROCKET_TOP_MEMCONF) $(ROCKET_TH_VERILOG) $(ROCKET_TH_INCLUDE) $(ROCKET_TH_MEMCONF)&: $(ROCKET_FIRRTL)
-        mkdir -p $(ROCKET_BUILD)
-        sbt "runMain starship.utils.stage.RTLGenerator \
-                --infer-rw $(STARSHIP_TOP) \
-                -T $(STARSHIP_TOP) -oinc $(ROCKET_TOP_INCLUDE) \
-                --repl-seq-mem -c:$(STARSHIP_TOP):-o:$(ROCKET_TOP_MEMCONF) \
-                -faf $(ROCKET_ANNO) -fct firrtl.passes.InlineInstances \
-                -X verilog $(FIRRTL_DEBUG_OPTION) \
-                -i $< -o $(ROCKET_TOP_VERILOG)"
-        sbt "runMain starship.utils.stage.RTLGenerator \
-                --infer-rw $(STARSHIP_TH) \
-                -T $(STARSHIP_TOP) -TH $(STARSHIP_TH) -oinc $(ROCKET_TH_INCLUDE) \
-                --repl-seq-mem -c:$(STARSHIP_TH):-o:$(ROCKET_TH_MEMCONF) \
-                -faf $(ROCKET_ANNO) -fct firrtl.passes.InlineInstances \
-                -X verilog $(FIRRTL_DEBUG_OPTION) \
-                -i $< -o $(ROCKET_TH_VERILOG)"
-        touch $(ROCKET_TOP_INCLUDE) $(ROCKET_TH_INCLUDE)
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 74-90
+	:caption: Verilog 生成
 
 最后生成的重要代码，我们部分介绍如下：
 
@@ -249,46 +216,12 @@ starship 代码简析
 
 我们现在观察 starship 的源代码，src/main/scala/Configs.scala 的代码如下，定义了 Starship 最基本的平台配置。
 
-.. code-block:: scala
-
-    package starship
-
-    case object FrequencyKey extends Field[Double](50)   // 50 MHz
-
-    class WithFrequency(MHz: Double) extends Config((site, here, up) => {
-        case FrequencyKey => MHz
-    })
-
-    class With25MHz  extends WithFrequency(25)
-    class With50MHz  extends WithFrequency(50)
-    class With100MHz extends WithFrequency(100)
-    class With150MHz extends WithFrequency(150)
-
-    class WithRocketCore extends Config(new WithNBigCores(1))
-    class WithBOOMCore extends Config(new boom.common.WithNSmallBooms(1))
-    class WithCVA6Core extends Config(new starship.cva6.WithNCVA6Cores(1))
-
-    class StarshipBaseConfig extends Config(
-        // new WithRoccExample ++
-        new WithExtMemSize(0x80000000L) ++
-        new WithNExtTopInterrupts(0) ++
-        new WithDTS("zjv,starship", Nil) ++
-        new WithEdgeDataBits(64) ++
-        new WithCoherentBusTopology ++
-        new WithoutTLMonitors ++
-        new BaseConfig().alter((site,here,up) => {
-            case BootROMLocated(x) => up(BootROMLocated(x), site).map { p =>
-                // invoke makefile for zero stage boot
-                val freqMHz = site(FPGAFrequencyKey).toInt * 1000000
-                val path = System.getProperty("user.dir")
-                val make = s"make -C firmware/zsbl ROOT_DIR=${path} img"
-                println("[Leaving rocketchip] " + make)
-                require (make.! == 0, "Failed to build bootrom")
-                println("[rocketchip Continue]")
-                p.copy(hang = 0x10000, contentFileName = s"build/firmware/zsbl/bootrom.img")
-            }
-        })
-    )
+.. remotecode:: ../_static/tmp/starship_baseconfig
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/Configs.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 25-60
+	:caption: StarshipBaseConfig
 
 我们可以找到 starship.WithRocketCore 和 starship.With100MHz 的定义。
 
@@ -305,55 +238,23 @@ starship.StarshipBaseConfig 定义了 starship 的基本配置：
 
 src/main/scala/top.scala 定义了最基本的平台实现，如 StarshipSystem 包含两个固件内存 bootRom 和 maskRom。
 
-.. code-block:: scala
-
-    class StarshipSystem(implicit p: Parameters) extends RocketSubsystem
-        with HasAsyncExtInterrupts
-    {
-        val bootROM  = p(BootROMLocated(location)).map { BootROM.attach(_, this, CBUS) }
-        val maskROMs = p(MaskROMLocated(location)).map { MaskROM.attach(_, this, CBUS) }
-
-        override lazy val module = new StarshipSystemModuleImp(this)
-    }
-
-    class StarshipSystemModuleImp[+L <: StarshipSystem](_outer: L) extends RocketSubsystemModuleImp(_outer)
-        with HasRTCModuleImp
-        with HasExtInterruptsModuleImp
-        with DontTouch
+.. remotecode:: ../_static/tmp/starship_basetop
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/Top.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 19-31
+	:caption: StarshipSystem
 
 fpga 综合的硬件配置最终定义在 starship/src/main/scala/fpga 文件夹下，平台配置见 Configs.scala 文件。这里的 StarshipFPGAConfig 就是 build.mk 中定义的 starship.fpga.StarshipFPGAConfig 模块。
 
 WithPeripherals 配置类型定义了平台的串口、spi 总线、maskrom 的 MMIO 地址范围，StarshipBaseConfig().alter 进一步定义了 DDR 内存的范围、没有 debug 模块等。
 
-.. code-block:: scala
-
-    package starship.fpga
-
-    case object VCU707DDRSizeKey extends Field[BigInt](0x40000000L) // 1 GB
-
-    class WithPeripherals extends Config((site, here, up) => {
-        case PeripheryUARTKey => List(
-            UARTParams(address = BigInt(0x64000000L)))
-        case PeripherySPIKey => List(
-            SPIParams(rAddress = BigInt(0x64001000L)))
-        case MaskROMLocated(x) => List(
-            MaskROMParams(BigInt(0x20000L), "StarshipROM")
-        )
-    })
-
-    class StarshipFPGAConfig extends Config(
-        new WithPeripherals ++
-        new StarshipBaseConfig().alter((site,here,up) => {
-            case DebugModuleKey => None
-            case PeripheryBusKey => up(PeripheryBusKey, site).copy(dtsFrequency = Some(site(FrequencyKey).toInt * 1000000))     
-            /* timebase-frequency = 1 MHz */
-            case DTSTimebase => BigInt(1000000L)
-            /* memory-size = 1 GB */
-            case MemoryXilinxDDRKey => XilinxVC707MIGParams(address = Seq(AddressSet(0x80000000L,site(VCU707DDRSizeKey)-1)))    
-            case ExtMem => up(ExtMem, site).map(x =>
-            x.copy(master = x.master.copy(size = site(VCU707DDRSizeKey))))
-        })
-    )
+.. remotecode:: ../_static/tmp/starship_fpga_config
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/fpga/Configs.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 24-48
+	:caption: StarshipFPGAConfig
 
 Configs.scala 模块定义了平台的各个组件是否启用，各个组件的地址范围等，之后在 VC707.scala 进行模块的实现。这里的 StarshipFPGATop、TestHarness 就是 build.mk 中定义的 starship.fpga.StarshipFPGATop、starship.fpga.TestHarness 模块。
 
@@ -363,86 +264,24 @@ StarshipFPGATop 作为 LazyModule 需要 StarshipFPGATopModuleImp 在 diplomacy 
 
 TestHarness 扩展 rocket-chip-fpga-shells 的 VC707 FPGA 的连接层，然后对 Top 模块进行实例化，连接 clock 和 reset 等引脚。 
 
-.. code-block:: scala
-
-    package starship.fpga
-
-    class StarshipFPGATop(implicit p: Parameters) extends StarshipSystem
-        with HasPeripheryUART
-        with HasPeripherySPI
-        with HasMemoryXilinxVC707MIG
-    {
-
-        val chosen = new DeviceSnippet {
-            def describe() = Description("chosen", Map(
-                "bootargs" -> Seq(ResourceString("nokaslr"))
-            ))
-        }
-
-        val mmc = new MMCDevice(tlSpiNodes.head.device)
-        ResourceBinding {
-            Resource(mmc, "reg").bind(ResourceAddress(0))
-        }
-
-        override lazy val module = new StarshipFPGATopModuleImp(this)
-
-    }
-
-    class StarshipFPGATopModuleImp[+L <: StarshipFPGATop](_outer: L) extends StarshipSystemModuleImp(_outer)
-        with HasPeripheryUARTModuleImp
-        with HasPeripherySPIModuleImp
-        with HasMemoryXilinxVC707MIGModuleImp
-        with DontTouch
-
-    class TestHarness(override implicit val p: Parameters) extends VC707Shell
-        with HasDDR3
-    {
-
-        dut_clock := (p(FPGAFrequencyKey) match {
-            case 25 => clk25
-            case 50 => clk50
-            case 100 => clk100
-            case 150 => clk150
-        })
-
-        withClockAndReset(dut_clock, dut_reset) {
-            val top = LazyModule(new StarshipFPGATop)
-            val dut = Module(top.module)
-
-            connectSPI      (dut)
-            connectUART     (dut)
-            connectMIG      (dut)
-
-            val childReset = dut_reset.asBool
-            dut.reset := childReset
-
-            dut.tieOffInterrupts()
-            dut.dontTouchPorts()
-
-            top.resetctrl.foreach { rc =>
-                rc.hartIsInReset.foreach { _ := childReset }
-            }
-        }
-    }
-
+.. remotecode:: ../_static/tmp/starship_fpga_top_no_debug
+	:url: https://github.com/sycuricon/starship/blob/05330d794b1470e7d929888a4229176175c4dbe1/repo/starship/src/main/scala/fpga/VC707.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 24-73
+	:caption: StarshipFPGATop
 
 zsbl 的生成
 ---------------------------------
 
 BootRom 一般是 rocket-chip 自带的固件模块，实际上也可以不要这个模块，需要重新定位 ResetVector，还是比较麻烦的。我们来看 starship 的 Config.scala 可以看到这里执行 ``make -C firmware/zsbl ROOT_DIR=${path} img`` 命令生成 zsbl 的固件镜像，然后将镜像文件 ``build/firmware/zsbl/bootrom.img`` 的内容载入到 bootrom 中。
 
-.. code-block:: scala
-
-    case BootROMLocated(x) => up(BootROMLocated(x), site).map { p =>
-        // invoke makefile for zero stage boot
-        val freqMHz = site(FPGAFrequencyKey).toInt * 1000000
-        val path = System.getProperty("user.dir")
-        val make = s"make -C firmware/zsbl ROOT_DIR=${path} img"
-        println("[Leaving rocketchip] " + make)
-        require (make.! == 0, "Failed to build bootrom")
-        println("[rocketchip Continue]")
-        p.copy(hang = 0x10000, contentFileName = s"build/firmware/zsbl/bootrom.img")
-    }
+.. remotecode:: ../_static/tmp/starship_baseconfig
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/Configs.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 49-58
+	:caption: BootROMLocated
 
 firmware/zsbl/bootrom.S 文件生成最后的 bootrom.img，其内容非常简单：
 
@@ -453,18 +292,11 @@ firmware/zsbl/bootrom.S 文件生成最后的 bootrom.img，其内容非常简�
 
 我们可以看到这个功能和 spike 的 0x10000 的启动固件非常相似，他们在设计上是同宗同源的。
 
-.. code-block:: asm
-
-    #define ROM_BASE 0x20000
-
-    .section .text.start, "ax", @progbits
-    .globl _start
-    _start:
-    csrwi 0x7c1, 0 // disable chicken bits
-    li s0, ROM_BASE
-    csrr a0, mhartid
-    li a1, 0
-    jr s0
+.. remotecode:: ../_static/tmp/zsbl
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/firmware/zsbl/bootrom.S
+	:language: asm
+	:type: github-permalink
+	:caption: zsbl 的执行流程
 
 我们可以在 top.v 中看到 BootROM 最终的实现 TLROM 模块，部分代码如下：
 
@@ -509,55 +341,19 @@ verilog 生成流程-内存部分
 
 之后调用 repo/rocket-chip/scripts/vlsi_mem_gen 进行内存生成，为每块内存生成定制化的 verilog 模块。
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 93-108
+	:caption: SRAM 路径变量
 
-    #######################################
-    #
-    #         SRAM Generator
-    #
-    #######################################
-
-    FIRMWARE_SRC    := $(TOP)/firmware
-    FIRMWARE_BUILD  := $(BUILD)/firmware
-    FSBL_SRC                := $(FIRMWARE_SRC)/fsbl
-    FSBL_BUILD              := $(FIRMWARE_BUILD)/fsbl
-
-    ROCKET_INCLUDE  := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).f
-    ROCKET_ROM_HEX  := $(FSBL_BUILD)/sdboot.hex
-    ROCKET_ROM              := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).rom.v
-    ROCKET_TOP_SRAM := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).behav_srams.top.v
-    ROCKET_TH_SRAM  := $(ROCKET_BUILD)/$(ROCKET_OUTPUT).behav_srams.testharness.v
-
-
-.. code-block:: Makefile
-
-    VERILOG_SRC     := $(ROCKET_TOP_SRAM) $(ROCKET_TH_SRAM) \
-        $(ROCKET_ROM) \
-        $(ROCKET_TH_VERILOG) $(ROCKET_TOP_VERILOG)
-
-    $(ROCKET_INCLUDE): | $(ROCKET_TH_INCLUDE) $(ROCKET_TOP_INCLUDE)
-        mkdir -p $(ROCKET_BUILD)
-        cat $(ROCKET_TH_INCLUDE) $(ROCKET_TOP_INCLUDE) 2> /dev/null | sort -u > $@
-        echo $(VERILOG_SRC) >> $@
-        sed -i "s/.*\.f$$/-f &/g" $@
-
-    $(ROCKET_TOP_SRAM): $(ROCKET_TOP_MEMCONF)
-        mkdir -p $(ROCKET_BUILD)
-        $(ROCKET_SRC)/scripts/vlsi_mem_gen $(ROCKET_TOP_MEMCONF) > $(ROCKET_TOP_SRAM)
-
-    $(ROCKET_TH_SRAM): $(ROCKET_TH_MEMCONF)
-        mkdir -p $(ROCKET_BUILD)
-        $(ROCKET_SRC)/scripts/vlsi_mem_gen $(ROCKET_TH_MEMCONF) > $(ROCKET_TH_SRAM)
-
-    $(ROCKET_ROM_HEX): $(ROCKET_DTS)
-        mkdir -p $(FSBL_BUILD)
-        $(MAKE) -C $(FSBL_SRC) PBUS_CLK=$(STARSHIP_FREQ)000000 ROOT_DIR=$(TOP) DTS=$(ROCKET_DTS) hex
-    
-    $(ROCKET_ROM): $(ROCKET_ROM_HEX) $(ROCKET_ROMCONF)
-        mkdir -p $(ROCKET_BUILD)
-        $(ROCKET_SRC)/scripts/vlsi_rom_gen $(ROCKET_ROMCONF) $< > $@
-
-    verilog: $(VERILOG_SRC)
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 110-136
+	:caption: SRAM 模块生成
 
 这个阶段一共执行了四个部分：
 
@@ -587,27 +383,12 @@ firmware/fsbl 负责初始化 spi 的控制寄存器，然后通过 spi 总线�
 
 我们来看一下 head.S 的代码：
 
-.. code-block:: asm
+.. remotecode:: ../_static/tmp/fsbl
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/firmware/fsbl/head.S
+	:language: asm
+	:type: github-permalink
+	:caption: fsbl 的执行流程
 
-        .section .text.init
-        .option norvc
-        .globl _prog_start
-    _prog_start:
-    #if defined UART && defined SD_SPI
-        smp_pause(s1, s2)
-        li sp, (PAYLOAD_DEST + 0xffff000)
-        call main
-        smp_resume(s1, s2)
-    #endif
-        csrr a0, mhartid // hartid for next level bootloader
-        la a1, dtb // dtb address for next level bootloader
-        li s1, PAYLOAD_DEST
-        jr s1
-
-        .section .dtb
-        .align 3
-    dtb:
-        .incbin DEVICE_TREE
 
 * 首先将 dts 文件用 dtc 编译为 dtb，这个 dtb 二进制会被保存在 fsbl 镜像的末尾，保存在 maskROM 当中
 * 执行 smp_pause 函数，这个函数让 0 号处理器执行 fsbl 的启动，让其他的处理器执行 wfi，等待 0 号处理器执行完毕
@@ -648,32 +429,12 @@ smp_pause 和 smp_resume 的执行过程大致如下：
 
 * 最后调用 copy 读取 SD 卡中的扇区写入内存
 
-.. code-block:: c
-
-    int main(void)
-    {
-    #if defined UART && defined SD_SPI
-            REG32(uart, UART_REG_TXCTRL) = UART_TXEN;
-            kprintf("[FSBL] Starship SoC under %lx Hz\r\n", F_CLK);
-            kputs("INIT");
-
-            sd_poweron();
-            if (sd_cmd0() ||
-                sd_cmd8() ||
-                sd_acmd41() ||
-                sd_cmd58() ||
-                sd_cmd16() ||
-                copy()) {
-                    kputs("ERROR");
-                    return 1;
-            }
-
-            kputs("BOOT");
-    #endif
-
-            __asm__ __volatile__ ("fence.i" : : : "memory");
-            return 0;
-    }
+.. remotecode:: ../_static/tmp/fsbl_sd
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/firmware/fsbl/sd.c
+	:language: C
+	:type: github-permalink
+	:lines: 214-237
+	:caption: fsbl 的 sd 载入流程
 
 在启动的过程中 fsbl 会将一些中间信息通过串口输出，如果执行正常就会输出如下的 log，如果遇到错误会输出 ERROR。
 
@@ -692,10 +453,12 @@ smp_pause 和 smp_resume 的执行过程大致如下：
 
 此外注意一个额外的参数 PAYLOAD_SIZE。copy 每次会读 512 个字节，这里将 PAYLOAD_SIZE 设置为 24<<11，这样就可以读入 (24<<11)*512 个字节，也就是 24MiB 数据。当我们将 bbl.bin 写入到 SD 卡中的时候，需要看一下 bbl.bin 的大小，如果是 24MiB 以内则不需要做调整，如果大于 24MiB，则需要修改 PAYLOAD_SIZE 的大小至合适的范围（也不能设置的太大，读 SD 卡很慢的）。
 
-.. code-block:: C
-
-    // A sector is 512 bytes, so ((1 << 11) * 512) = 1 MiB
-    #define PAYLOAD_SIZE    (24 << 11)
+.. remotecode:: ../_static/tmp/fsbl_sd
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/firmware/fsbl/sd.c
+	:language: C
+	:type: github-permalink
+	:lines: 12-13
+	:caption: 设置 sd 载入字节大小
 
 vivado 综合
 -----------------------------
@@ -718,35 +481,19 @@ FPGA 板卡的类型参见 build.mk 中的 STARSHIP_BOARD 变量，这里选择�
 
 * -board：VC707 为板子型号
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/starship_conf_build_mk
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/conf/build.mk
+	:language: Makefile
+	:type: github-permalink
+	:lines: 11-14
+	:caption: 板卡类型设置
 
-    # FPGA Configuration
-    ####################
-
-    STARSHIP_BOARD  ?= vc707
-
-    #######################################
-    #
-    #         Bitstream Generator
-    #
-    #######################################
-
-    VIVADO_TOP              := $(lastword $(subst ., ,$(STARSHIP_TH)))
-    VIVADO_SRC              := $(SRC)/rocket-chip-fpga-shells
-    VIVADO_SCRIPT           := $(VIVADO_SRC)/xilinx
-    VIVADO_BUILD            := $(BUILD)/vivado
-    VIVADO_BITSTREAM        := $(VIVADO_BUILD)/$(ROCKET_OUTPUT).bit
-
-    $(VIVADO_BITSTREAM): $(ROCKET_INCLUDE) $(VERILOG_SRC)
-            mkdir -p $(VIVADO_BUILD)
-            cd $(VIVADO_BUILD); vivado -mode batch -nojournal \
-                    -source $(VIVADO_SCRIPT)/common/tcl/vivado.tcl \
-                    -tclargs -F "$(ROCKET_INCLUDE)" \
-                    -top-module "$(VIVADO_TOP)" \
-                    -ip-vivado-tcls "$(shell find '$(ROCKET_BUILD)' -name '*.vivado.tcl')" \
-                    -board "$(STARSHIP_BOARD)"
-
-    bitstream: $(VIVADO_BITSTREAM)
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 149-170
+	:caption: bitstream 生成
 
 最后的 vivado 工程见 build/vivado，其中 bitstream 文件在 build/vivado/obj/TestHarness.bit
 
@@ -959,23 +706,12 @@ starship 的软件的设备树，我们直接使用 conf/starship.dts，我们�
 
 下图是 starship.dts 增加的 resered-memory 节点，spike 的大同小异，这样可以阻止 linux 读写 0x80000000-0x80040000 的地址范围。
 
-.. code-block:: dts
-
-    reserved-memory {
-            #address-cells = <1>;
-            #size-cells = <1>;
-            ranges;
-
-            mmode_resv1@80020000 {
-                reg = <0x80020000 0x20000>;
-                no-map;
-            };
-
-            mmode_resv0@80000000 {
-                reg = <0x80000000 0x20000>;
-                no-map;
-            };
-    };
+.. remotecode:: ../_static/tmp/starship_dts
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/conf/starship.dts
+	:language: text
+	:type: github-permalink
+	:lines: 53-67
+	:caption: resered-memory 设备树配置
 
 在内核启动的时候，我们就可以看到这部分额外的 log：
 
