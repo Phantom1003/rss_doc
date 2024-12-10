@@ -8,17 +8,17 @@ sycuricon( 六 ): 流片
 
 浙大求是安全芯是浙江大学网安学院系统所常瑞老师、申文博老师的芯片项目，旨在实现芯片安全架构扩展和提供真实的芯片实验平台。
 
-求是安全芯 I 号实现了 rocket-chip 的 regvault 扩展，我们小组负责处理器内核的前端设计，由鹏城实验室方面提供处理器外围和后端版图，最后交给代工厂流片。
+求是安全芯 I 号实现了 rocket-chip 的 regvault 扩展，我们小组负责处理器内核的前端设计，由香山实验室方面提供处理器外围和后端版图，最后交给代工厂流片。
 
 前端代码调整和实现
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-为了让我们 rocket-chip 的核内实现和鹏城实验室提供的芯片外围可以对接起来，我们需要对 rocket-chip 做一些调整，我们在 regvault 的基础上新建了 no-io 分支来实现这部分内容。
+为了让我们 rocket-chip 的核内实现和香山实验室提供的芯片外围可以对接起来，我们需要对 rocket-chip 做一些调整，我们在 regvault 的基础上新建了 no-io 分支来实现这部分内容。
 
 删除处理器外围
 ---------------------------------
 
-因为我们的处理器使用鹏城的外围，所以我们需要首先删除 VC707Shell 提供的外围和其他的外设支持。我们在 repo/starship/src/main/scala 中新建了 Axi4 文件夹，里面是对应的模块实现，旨在删除外围部件，仅保留一个 memory 接口和一个 MMIO 接口。
+因为我们的处理器使用香山的外围，所以我们需要首先删除 VC707Shell 提供的外围和其他的外设支持。我们在 repo/starship/src/main/scala 中新建了 Axi4 文件夹，里面是对应的模块实现，旨在删除外围部件，仅保留一个 memory 接口和一个 MMIO 接口。
 
 修改 AXI4Top.scala 模块：
 
@@ -27,24 +27,12 @@ sycuricon( 六 ): 流片
 * 将原有的 PeripherySPIKey、PeripheryUARTKey 等配置删除，不生成 SPI、UART 等外设驱动
 * 仅保留 CanHaveMasterAXI4MemPort、CanHaveMasterAXI4MMIOPort、HasPeripheryDebug，保留内存总线接口、MMIO 接口、调试模块接口
 
-.. code-block:: scala
-
-    class StarshipAxi4Top(implicit p: Parameters) extends StarshipSystem
-        with CanHaveMasterAXI4MemPort
-        with CanHaveMasterAXI4MMIOPort
-        with HasPeripheryDebug
-    {
-        val chosen = new DeviceSnippet {
-            def describe() = Description("chosen", Map(
-            "bootargs" -> Seq(ResourceString("nokaslr"))
-            ))
-        }
-
-        override lazy val module = new StarshipAxi4TopModuleImp(this)
-    }
-
-    class StarshipAxi4TopModuleImp[+L <: StarshipAxi4Top](_outer: L) extends StarshipSystemModuleImp(_outer)
-        with DontTouch
+.. remotecode:: ../_static/tmp/starship_axi4_top
+	:url: https://github.com/sycuricon/starship/blob/fd5d82309900869f8787f1141857f770a499b738/repo/starship/src/main/scala/axi4/AXI4Top.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 18-33
+	:caption: StarshipAxi4Top
 
 删除处理器插桩
 ----------------------
@@ -53,54 +41,26 @@ sycuricon( 六 ): 流片
 
 我们将 override 的 run 函数进行修改，将里面的 ``RunFirrtlTransformAnnotation(Dependency[CoverageInstrument])`` 注释掉，这样生成的 verilog 就没有对应的 coverage_sum 的插桩了。
 
-.. code-block:: scala
-
-    val starshipAnnotation =
-      if (topName.isDefined && thName.isEmpty) {
-        logger.info(s"Generate Top         ${thName}  ${topName}")
-        Seq(
-          RunFirrtlTransformAnnotation(Dependency[ExtractTop]),
-          BlackBoxResourceFileNameAnno(incOutFile.get),
-          RunFirrtlTransformAnnotation(Dependency[RegisterRecord])
-          // RunFirrtlTransformAnnotation(Dependency[CoverageInstrument])
-        )
+.. remotecode:: ../_static/tmp/starship_axi4_stage
+	:url: https://github.com/sycuricon/starship/blob/fd5d82309900869f8787f1141857f770a499b738/repo/starship/src/main/scala/utils/StarshipStage.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 106-114
+	:caption: 删除 coverage sum 插桩
 
 修改 MMIO 范围
 --------------------------
 
-鹏城提供的外围的 MMIO 地址范围在 0x1000000-0x80000000，所以我们需要将 MMIO 的地址范围做对应的修改，不然到时候核内寻址不会将地址读写请求从 MMIO 口中发送出来。
+香山提供的外围的 MMIO 地址范围在 0x1000000-0x80000000，所以我们需要将 MMIO 的地址范围做对应的修改，不然到时候核内寻址不会将地址读写请求从 MMIO 口中发送出来。
 
 这里对 Config.scala 进行修改，可以看到 BaseConfig 对 ExtBus 参数进行了修改，将 base 设置为 0x1000_0000，将 size 设置为 0x7000_0000。
 
-.. code-block:: scala
-
-    class StarshipBaseConfig extends Config(
-        // new WithRoccExample ++
-        new WithExtMemSize(0x80000000L) ++
-        new WithNExtTopInterrupts(0) ++
-        new WithDTS("zjv,starship", Nil) ++
-        new WithEdgeDataBits(64) ++
-        new WithCoherentBusTopology ++
-        new WithoutTLMonitors ++
-        new WithPECRocc ++
-        new BaseConfig().alter((site,here,up) => {
-            case BootROMLocated(x) => up(BootROMLocated(x), site).map { p =>
-                // invoke makefile for zero stage boot
-                val freqMHz = site(FPGAFrequencyKey).toInt * 1000000
-                val path = System.getProperty("user.dir")
-                val make = s"make -C firmware/zsbl ROOT_DIR=${path} img"
-                println("[Leaving rocketchip] " + make)
-                require (make.! == 0, "Failed to build bootrom")
-                println("[rocketchip Continue]")
-                p.copy(hang = 0x10000, contentFileName = s"build/firmware/zsbl/bootrom.img")
-            }
-            case ExtBus => Some(MasterPortParams(
-                base = x"1000_0000",
-                size = x"7000_0000",
-                beatBytes = site(MemoryBusKey).beatBytes,
-                idBits = 4))
-            })
-        )
+.. remotecode:: ../_static/tmp/starship_axi4_base_config
+	:url: https://github.com/sycuricon/starship/blob/fd5d82309900869f8787f1141857f770a499b738/repo/starship/src/main/scala/Configs.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 40-66
+	:caption: 修改 ExtBus 范围
 
 这样我们就完成了对 MMIO 范围的修改，此时我们生成最后的 verilog，可以检查对应的设备树，可以看到：
 
@@ -116,67 +76,45 @@ sycuricon( 六 ): 流片
 启动过程调整
 -----------------------
 
-在鹏城提供的启动过程中，我们的处理器从 0x30000000 开始启动，然后开始访问对应地址范围的 flash。该 flash 前半部分是一段启动代码，后半部分是系统程序镜像，处理器执行前半部分的启动代码将程序镜像 copy 到内存中，然后开始后续的系统启动。
+在香山提供的启动过程中，我们的处理器从 0x30000000 开始启动，然后开始访问对应地址范围的 flash。该 flash 前半部分是一段启动代码，后半部分是系统程序镜像，处理器执行前半部分的启动代码将程序镜像 copy 到内存中，然后开始后续的系统启动。
 
 所以我们让处理器在 zsbl 当中执行 0x30000000 的跳转。所以对 firmware 的 zsbl 代码进行调整，修改为
 
-.. code-block:: c
-
-    #define ROM_BASE 0x30000000
-
-    .section .text.start, "ax", @progbits
-    .globl _start
-    _start:
-        csrwi 0x7c1, 0 // disable chicken bits
-        li s0, ROM_BASE
-        csrr a0, mhartid
-        li a1, 0
-        jr s0
+.. remotecode:: ../_static/tmp/starship_axi4_zsbl
+	:url: https://github.com/sycuricon/starship/blob/fd5d82309900869f8787f1141857f770a499b738/firmware/zsbl/bootrom.S
+	:language: scala
+	:type: github-permalink
+	:caption: zsbl 跳转到 0x30000000 启动
 
 这一看到这个时候 maskrom 已经没有用了，所以我们可以把 maskrom 删除掉。修改 Top.scala 的 StarshipSystem，删除 maskrom 的实例化：
 
-.. code-block:: scala
-
-    class StarshipSystem(implicit p: Parameters) extends RocketSubsystem
-        with HasAsyncExtInterrupts
-    {
-        val bootROM  = p(BootROMLocated(location)).map { BootROM.attach(_, this, CBUS) }
-        override lazy val module = new StarshipSystemModuleImp(this)
-    }
+.. remotecode:: ../_static/tmp/starship_axi4_base_top
+	:url: https://github.com/sycuricon/starship/blob/fd5d82309900869f8787f1141857f770a499b738/repo/starship/src/main/scala/Top.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 19-24
+	:caption: 删除 maskrom
 
 在 AXI4Top/Config.scala，在原来 regvault 的 Config 的基础上，删除了 WithPeripherals 配置，这样内部的 TileLink 就不会生成 maskrom 对应的路由。
 
-.. code-block:: scala
-
-    // class WithPeripherals extends Config((site, here, up) => {
-    //   case MaskROMLocated(x) => List(
-    //     MaskROMParams(BigInt(0x20000L), "StarshipROM")
-    //   )
-    // })
-
-    class StarshipAxi4DebugConfig extends Config(
-        // new WithPeripherals ++
-        new WithJtagDTM ++
-        new WithClockGateModel() ++
-        new StarshipBaseConfig().alter((site,here,up) => {
-            case PeripheryBusKey => up(PeripheryBusKey, site).copy(dtsFrequency = Some(site(FrequencyKey).toInt * 1000000))   
-            /* timebase-frequency = 1 MHz */
-            case DTSTimebase => BigInt(1000000L)
-        })
-    )
+.. remotecode:: ../_static/tmp/starship_axi4_config
+	:url: https://github.com/sycuricon/starship/blob/fd5d82309900869f8787f1141857f770a499b738/repo/starship/src/main/scala/axi4/Configs.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 15-30
+	:caption: 删除 WithPeripherals
 
 Verilog 代码生成
 ----------------------------
 
 修改 conf/build.mk 的配置为对应的：
 
-.. code-block:: Makefile
-
-    STARSHIP_CORE   ?= Rocket
-    STARSHIP_FREQ   ?= 100
-    STARSHIP_TH     ?= starship.axi4.TestHarness
-    STARSHIP_TOP    ?= starship.axi4.StarshipAxi4Top
-    STARSHIP_CONFIG ?= starship.axi4.StarshipAxi4Config
+.. remotecode:: ../_static/tmp/starship_axi4_conf_build_mk
+	:url: https://github.com/sycuricon/starship/blob/fd5d82309900869f8787f1141857f770a499b738/conf/build.mk
+	:language: scala
+	:type: github-permalink
+	:lines: 1-8
+	:caption: axi4 对应的生成配置
 
 然后执行 ``make vlt`` 就可以得到需要的代码，我们将必要的代码取出即可：
 
@@ -288,10 +226,10 @@ IP 核的替换
 * rocket 中的使能信号都是高电平使能，这里需要手动修改为低电平使能
 * rocket 的段使能都是多位的，而 sram 的段使能是单位的，需要做一个转换
 
-接入鹏城外围
+接入香山外围
 -----------------------
 
-这部分由鹏城实验室提供测试仿真的外围环境，因为他们的外围只有一个面向处理器的 AXI 口，因此需要额外生成一个 NIC 桥将我们处理器的两个口转换为一个口，然后和外围连接。
+这部分由香山实验室提供测试仿真的外围环境，因为他们的外围只有一个面向处理器的 AXI 口，因此需要额外生成一个 NIC 桥将我们处理器的两个口转换为一个口，然后和外围连接。
 
 这部分代码因为是对方机密，所以不予开源。
 
@@ -547,7 +485,7 @@ IP 核的替换
 功能测试
 ----------------------
 
-首先我们执行了鹏城提供的三个测试：
+首先我们执行了香山提供的三个测试：
 
 * print hello world：测试外围的串口正确，测试 flash 读写正确
 * memory copy：测试内存读写正确
@@ -589,11 +527,11 @@ JTAG 测试
 * 因为没有 to_host 的检查，在 write_host 之后加入一条 read_host，然后对硬件做 hook，检查读 host 地址的时候对应的值是不是 1（替换原来的 host 写入 1 结束的 pass 条件）
 * 编写 Python 脚本让处理器自动化的执行各个测试
 
-这三部分测试和仿真环境因为设计鹏城的技术，所以保持闭源。
+这三部分测试和仿真环境因为设计香山的技术，所以保持闭源。
 
 内核启动测试
 -------------------
 
 没有真的执行，理论上应该让处理器执行完整的内核。
 
-但是我们没有鹏城外围的设备树，所以没有办法实现最后的系统镜像，这部分等后续有机会弥补。
+但是我们没有香山外围的设备树，所以没有办法实现最后的系统镜像，这部分等后续有机会弥补。
