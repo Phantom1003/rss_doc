@@ -216,67 +216,12 @@ testbench 内部包含如下几个模块各司其职：
 
 该模块首先对 cosim_cj_t 做初始化，实例化出模拟器，然后调用每个处理器结构相关的特殊代码进行后续的差分测试。最后调用 cosim_get_tohost 的 dip-c function 获得模拟器内部的 host 的值。
 
-.. code-block:: verilog
-
-    import "DPI-C" function int cosim_commit (
-        input int unsigned hartid,
-        input longint unsigned dut_pc,
-        input int unsigned dut_insn
-    );
-
-    import "DPI-C" function int cosim_judge (
-        input int unsigned hartid,
-        input string which,
-        input int unsigned dut_waddr,
-        input longint unsigned dut_wdata
-    );
-
-    import "DPI-C" function void cosim_raise_trap (
-        input int unsigned hartid,
-        input longint unsigned cause
-    );
-
-    import "DPI-C" function void cosim_init(
-        input string testcase,
-        input reg verbose
-    );
-
-    import "DPI-C" function longint cosim_get_tohost();
-
-    module CJ #(parameter harts=1, commits=2) (
-        input clock,
-        input reset,
-        output reg [63:0] tohost
-    );
-        string testcase;
-        reg verbose = 1'b0;
-
-        initial begin
-            if (!$value$plusargs("testcase=%s", testcase)) begin
-                $write("%c[1;31m",27);
-                $display("At least one testcase is required for CJ");
-                $write("%c[0m",27);
-                $fatal;
-            end
-            verbose = $test$plusargs("verbose");
-            cosim_init(testcase, verbose);
-        end
-
-        always @(posedge clock) begin
-            if (!reset) begin
-            `ifdef TARGET_BOOM
-                `include "spike_difftest.boom.v"
-            `elsif TARGET_CVA6
-                `include "spike_difftest.cva6.v"
-            `else
-                `include "spike_difftest.rocket.v"
-            `endif
-
-            tohost <= cosim_get_tohost();
-            end
-        end
-
-    endmodule
+.. remotecode:: ../_static/tmp/spike_difftest
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/asic/sim/spike_difftest.v
+	:language: verilog
+	:type: github-permalink
+	:lines: 1-60
+	:caption: 差分测试 CJ 模块
 
 我们以 rocket-chip core 的差分测试为例进行介绍，我们来看 rocket-chip 硬件实现相关的用于差分测试的代码。这里包括三个部分：
 
@@ -286,50 +231,11 @@ testbench 内部包含如下几个模块各司其职：
 
 因为每个处理器的模块名、线名、写口个数、写回方式等都存在较大的差异，所以这部分代码只能手动处理，毕竟每个子类都要做虚函数重载的。
 
-.. code-block:: verilog
-
-    // commit stage
-    if (`PIPELINE.wb_valid) begin
-        if (cosim_commit(0, $signed(`PIPELINE.csr_io_trace_0_iaddr), `PIPELINE.csr_io_trace_0_insn) != 0) begin
-            $display("[CJ] Commit Failed");
-            #10 $fatal;
-        end
-    end
-
-    // judge stage
-    if (`PIPELINE.wb_wen && !`PIPELINE.wb_set_sboard) begin
-        if (cosim_judge(0, "int", `PIPELINE.rf_waddr, `PIPELINE.rf_wdata) != 0) begin
-            $display("[CJ] integer register Judge Failed");
-            #10 $fatal;
-        end
-    end
-
-    if (`PIPELINE.ll_wen) begin
-        if (cosim_judge(0, "int", `PIPELINE.rf_waddr, `PIPELINE.rf_wdata) != 0) begin
-            $display("[CJ] integer register Judge Failed");
-            #10 $fatal;
-        end
-    end
-
-    if (`CPU_TOP.fpuOpt.rtlFuzz_fregWriteEnable & ~reset) begin
-        if (cosim_judge(0, "float", `CPU_TOP.fpuOpt.waddr, `CPU_TOP.fpuOpt.rtlFuzz_fregWriteData) 
-    != 0) begin
-            $display("[CJ] float register write Judge Failed");
-            #10 $fatal;
-        end
-    end
-
-    if (`CPU_TOP.fpuOpt.load_wb & ~reset) begin
-        if (cosim_judge(0, "float", `CPU_TOP.fpuOpt.load_wb_tag, `CPU_TOP.fpuOpt.rtlFuzz_fregLoadData) != 0) begin
-            $display("[CJ] float register load Judge Failed");
-            #10 $fatal;
-        end
-    end
-
-    // exception & interrupt
-    if (`PIPELINE.csr.io_trace_0_interrupt) begin 
-        cosim_raise_trap(0, `PIPELINE.csr.io_trace_0_cause[63:0]);
-    end
+.. remotecode:: ../_static/tmp/spike_difftest.rocket
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/asic/sim/spike_difftest.rocket.v
+	:language: verilog
+	:type: github-permalink
+	:caption: 差分测试模块的 rocket 架构相关代码
 
 处理器仿真
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -380,55 +286,44 @@ rocket-chip 的各个补丁作用如下：
 * 同理，将 core_boot_addr 等其他的起始地址从 0x10000 修改为 0x80000000
 * 插桩的初始值从随机数修改为 0，在 fpga 的 flow 中这些部分是不需要的，随意可以随便赋值；但是现在需要 covsum 的结果做覆盖率，那么就需要初始化为 0。
 
-.. code-block:: Makefile
-
-    verilog-patch: verilog
-        # sed -i "s/s2_pc <= 42'h10000/s2_pc <= 42'h80000000/g" $(ROCKET_TOP_VERILOG)
-        sed -i "s/s2_pc <= 40'h10000/s2_pc <= 40'h80000000/g" $(ROCKET_TOP_VERILOG)
-        sed -i "s/core_boot_addr_i = 64'h10000/core_boot_addr_i = 64'h80000000/g" $(ROCKET_TOP_VERILOG)
-        sed -i "s/40'h10000 : 40'h0/40'h80000000 : 40'h0/g" $(ROCKET_TOP_VERILOG)
-        sed -i "s/ram\[initvar\] = {2 {\$$random}}/ram\[initvar\] = 0/g" $(ROCKET_TH_SRAM)    
-        sed -i "s/_covMap\[initvar\] = _RAND/_covMap\[initvar\] = 0; \/\//g" $(ROCKET_TOP_VERILOG)
-        sed -i "s/_covState = _RAND/_covState = 0; \/\//g" $(ROCKET_TOP_VERILOG)
-        sed -i "s/_covSum = _RAND/_covSum = 0; \/\//g" $(ROCKET_TOP_VERILOG)
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 138-146
+	:caption: verilog 代码调整 
 
 riscv-isa-cosim 库编译
 ------------------------------
 
 为 Verilog 的差分测试模块可以调用 cosim 的 api，我们需要将 riscv-isa-cosim 编译为链接库。
 
-.. code-block:: Makefile
-
-    SPIKE_DIR               := $(SRC)/riscv-isa-sim
-    SPIKE_SRC               := $(shell find $(SPIKE_DIR) -name "*.cc" -o -name "*.h" -o -name "*.c")
-    SPIKE_BUILD             := $(BUILD)/spike
-    SPIKE_LIB               := $(addprefix $(SPIKE_BUILD)/,libcosim.a libriscv.a libdisasm.a libsoftfloat.a libfesvr.a libfdt.a)
-    SPIKE_INCLUDE           := $(SPIKE_DIR) $(SPIKE_DIR)/cosim $(SPIKE_DIR)/fdt $(SPIKE_DIR)/fesvr \      
-                                $(SPIKE_DIR)/riscv $(SPIKE_DIR)/softfloat $(SPIKE_BUILD)       
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 194-199
+	:caption: cosim 编译变量    
 
 * repo/riscv-isa-sim：riscv-isa-cosim 的源代码
 * build/spike：编译 cosim 的工作区，编译得到的链接库也在其中
 * spike 链接库：编译得到的链接库位于 build/spike，包括
 
-    * libcosim.a：用于 cosim 差分测试
-    * libriscv.a：用于 riscv 指令解析和模拟
-    * libdisasm.a：用于反汇编
-    * libsoftfloat.a：用于软浮点运算
-    * libfesvr.a：用于 spike 和 host 交互
-    * libfdt.a：用于设备树解析
+  * libcosim.a：用于 cosim 差分测试
+  * libriscv.a：用于 riscv 指令解析和模拟
+  * libdisasm.a：用于反汇编
+  * libsoftfloat.a：用于软浮点运算
+  * libfesvr.a：用于 spike 和 host 交互
+  * libfdt.a：用于设备树解析
 
 * spike 头文件：位于 cosim 源代码的各个路径和 build 的各个路径
 
-.. code-block:: Makefile
-
-    export LD_LIBRARY_PATH=$(SPIKE_BUILD)
-
-    $(SPIKE_BUILD)/Makefile:
-        mkdir -p $(SPIKE_BUILD)
-        cd $(SPIKE_BUILD); $(SCL_PREFIX) $(SPIKE_DIR)/configure
-
-    $(SPIKE_LIB)&: $(SPIKE_SRC) $(SPIKE_BUILD)/Makefile
-        cd $(SPIKE_BUILD); $(SCL_PREFIX) make -j$(shell nproc) $(notdir $(SPIKE_LIB))
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 201-208
+	:caption: cosim 链接库编译
 
 之后执行 ``$(SPIKE_LIB)&`` target，在 build/spike 执行 configure 和 make 即可。这个编译过程其实和 rss 的 spike 编译方式一样，只是没有 install 而已。
 
@@ -439,45 +334,12 @@ verilator 仿真
 
 .. _verilator: https://github.com/verilator/verilator.git
 
-.. code-block:: Makefile
-
-    #######################################
-    #
-    #            Verilator
-    #
-    #######################################
-
-    VLT_BUILD       := $(BUILD)/verilator
-    VLT_WAVE        := $(VLT_BUILD)/wave
-    VLT_TARGET      := $(VLT_BUILD)/$(TB_TOP)
-
-    VLT_CFLAGS      := -std=c++17 $(addprefix -I,$(SPIKE_INCLUDE)) -I$(ROCKET_BUILD)
-
-    VLT_SRC_C       := $(SIM_DIR)/spike_difftest.cc \
-                            $(SPIKE_LIB) \
-                            $(SIM_DIR)/timer.cc
-
-    VLT_SRC_V       := $(SIM_DIR)/$(TB_TOP).v \
-                            $(SIM_DIR)/spike_difftest.v \
-                            $(SIM_DIR)/tty.v
-
-    VLT_DEFINE      := +define+MODEL=$(STARSHIP_TH)                         \
-                            +define+TOP_DIR=\"$(VLT_BUILD)\"                     \
-                            +define+INITIALIZE_MEMORY                            \
-                            +define+CLOCK_PERIOD=1.0                                     \     
-                            +define+DEBUG_VCD                                            \     
-                            +define+TARGET_$(STARSHIP_CORE)
-
-    VLT_OPTION      := -Wno-WIDTH -Wno-STMTDLY -Wno-fatal --timescale 1ns/10ps --trace --timing   \
-                            +systemverilogext+.sva+.pkg+.sv+.SV+.vh+.svh+.svi+ \
-                            +incdir+$(ROCKET_BUILD) +incdir+$(SIM_DIR) $(CHISEL_DEFINE) $(VLT_DEFINE)          \
-                            --cc --exe --Mdir $(VLT_BUILD) --top-module $(TB_TOP) --main -o $(TB_TOP)  \
-                            -CFLAGS "-DVL_DEBUG -DTOP=${TB_TOP} ${VLT_CFLAGS}"
-    VLT_SIM_OPTION  := +testcase=$(TESTCASE_ELF)
-
-    vlt-wave:               VLT_SIM_OPTION  += +dump
-    vlt-jtag:               VLT_SIM_OPTION  += +jtag_rbb_enable=1
-    vlt-jtag-debug: VLT_SIM_OPTION  += +dump +jtag_rbb_enable=1
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 292-328
+	:caption: verilator 仿真变量参数
 
 verilator 涉及到一大堆的配置参数
 
@@ -497,23 +359,12 @@ verilator 涉及到一大堆的配置参数
 * vlt-jtag：允许 jtag 调试
 * vlt-jtag-debug：即允许 jtag 调试，又允许 dump 波形
 
-.. code-block:: Makefile
-
-    $(VLT_TARGET): $(VERILOG_SRC) $(ROCKET_ROM_HEX) $(ROCKET_INCLUDE) $(VLT_SRC_V) $(VLT_SRC_C) $(SPIKE_LIB)
-        $(MAKE) verilog-patch
-        mkdir -p $(VLT_BUILD) $(VLT_WAVE)
-        cd $(VLT_BUILD); verilator $(VLT_OPTION) -f $(ROCKET_INCLUDE) $(VLT_SRC_V) $(VLT_SRC_C)
-        make -C $(VLT_BUILD) -f V$(TB_TOP).mk $(TB_TOP)
-
-    vlt: $(VLT_TARGET) $(TESTCASE_HEX)
-        cd $(VLT_BUILD); ./$(TB_TOP) $(VLT_SIM_OPTION)
-
-    vlt-wave:               vlt
-    vlt-jtag:               vlt
-    vlt-jtag-debug: vlt
-
-    gtkwave:
-        gtkwave $(VLT_WAVE)/starship.vcd
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 330-344
+	:caption: verilator 仿真
 
 * $(VLT_TARGET) 依赖于 rocket-chip 生成的 verilog，依赖于 cosim 的静态链接库，依赖于 asic/sim 的测试代码
 * 执行 ``$(VLT_TARGET)``，verilator 根据一些列配置将所有的 Verilog、Cpp 文件编译为最后的 Testbench
@@ -525,33 +376,28 @@ verilator 涉及到一大堆的配置参数
 
 测试程序地址记录在 conf/build.mk 中
 
-.. code-block:: Makefile
-
-    # Simulation Configuration
-    ##########################
-
-    STARSHIP_TESTCASE       ?= $(BUILD)/starship-dummy-testcase
-
-    $(BUILD)/starship-dummy-testcase:
-            mkdir -p $(BUILD)
-            wget https://github.com/sycuricon/riscv-tests/releases/download/dummy/rv64ui-p-simple -O $@
+.. remotecode:: ../_static/tmp/starship_conf_build_mk
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/conf/build.mk
+	:language: Makefile
+	:type: github-permalink
+	:lines: 17-24
+	:caption: 仿真测试程序设置
 
 STARSHIP_TESTCASE 指示了测试样例的 elf 文件的绝对路径。默认的情况下这个文件是 starship-dummp-testcase，Makefile 会从 github 上下载这个文件，然后执行。
 
-.. code-block:: Makefile
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 181-183
+	:caption: 测试程序路径变量
 
-    TESTCASE_ELF    := $(STARSHIP_TESTCASE)
-    TESTCASE_BIN    := $(shell mktemp)
-    TESTCASE_HEX    := $(STARSHIP_TESTCASE).hex
-
-    $(TESTCASE_HEX): $(TESTCASE_ELF)
-        riscv64-unknown-elf-objcopy --gap-fill 0                        \
-            --set-section-flags .bss=alloc,load,contents    \
-            --set-section-flags .sbss=alloc,load,contents   \
-            --set-section-flags .tbss=alloc,load,contents   \
-            -O binary $< $(TESTCASE_BIN)
-        od -v -An -tx8 $(TESTCASE_BIN) > $@
-        rm $(TESTCASE_BIN)
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 265-272
+	:caption: 测试程序 hex 文件生成
 
 之后这个 elf 文件会被转化为对应的 hex 文件，然后通过 +testcase 参数把路径传递给模拟执行的 verilog。elf 文件被 cosim 链接库的模拟器加载，hex 被处理器加载，然后开始做差分测试。
 
@@ -562,25 +408,12 @@ VCS 是工业级的仿真和综合软件，需要先安装 VCS 的正版软件�
 
 VCS 的参数配置和 verilator 保持对偶，所以就不一一介绍了，大家类比即可。
 
-.. code-block:: Makefile
-
-    vcs: $(VCS_TARGET) $(TESTCASE_HEX)
-            mkdir -p $(VCS_BUILD) $(VCS_LOG) $(VCS_WAVE)
-            cd $(VCS_BUILD); \
-            $(VCS_TARGET) -quiet +ntb_random_seed_automatic -l $(VCS_LOG)/sim.log  \
-                    $(VCS_SIM_OPTION) 2>&1 | tee /tmp/rocket.log; exit "$${PIPESTATUS[0]}";       
-
-    vcs-wave vcs-debug: vcs
-    vcs-fuzz vcs-fuzz-debug: vcs
-    vcs-jtag vcs-jtag-debug: vcs
-
-    verdi:
-            mkdir -p $(VERDI_OUTPUT)
-            touch $(VERDI_OUTPUT)/signal.rc
-            cd $(VERDI_OUTPUT); \
-            verdi -$(VCS_OPTION) -q -ssy -ssv -ssz -autoalias \
-                    -ssf $(VCS_WAVE)/starship.fsdb -sswr $(VERDI_OUTPUT)/signal.rc \
-                    -logfile $(VCS_LOG)/verdi.log -top $(TB_TOP) -f $(ROCKET_INCLUDE) $(VCS_SRC_V) &
+.. remotecode:: ../_static/tmp/starship_makefile
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 274-290
+	:caption: vcs 仿真
 
 * 执行 ``make vcs`` 即可 vcs 编译执行
 * vcs-wave 可以额外 dump 波形
