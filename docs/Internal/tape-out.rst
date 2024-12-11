@@ -8,17 +8,17 @@ sycuricon( 六 ): 流片
 
 浙大求是安全芯是浙江大学计算机科学与技术学院/网络空间安全学院申文博老师、常瑞老师的芯片项目，旨在扩展芯片安全架构，实现新型的芯片安全机制，同时提供真实的芯片实验平台。
 
-求是安全芯 I 号实现了 rocket-chip 的 regvault 扩展，我们小组负责处理器内核的前端设计，由香山实验室方面提供处理器外围和后端版图，最后交给代工厂流片。
+求是安全芯 I 号实现了 rocket-chip 的 regvault 扩展，我们小组负责处理器内核的前端设计，由一生一芯团队提供处理器外围和后端版图，最后交给代工厂流片。
 
 前端代码调整和实现
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-为了让我们 rocket-chip 的核内实现和香山实验室提供的芯片外围可以对接起来，我们需要对 rocket-chip 做一些调整，我们在 regvault 的基础上新建了 no-io 分支来实现这部分内容。
+为了让我们 rocket-chip 的核内实现和一生一芯团队提供的芯片外围可以对接起来，我们需要对 rocket-chip 做一些调整，我们在 regvault 的基础上新建了 no-io 分支来实现这部分内容。
 
 删除处理器外围
 ---------------------------------
 
-因为我们的处理器使用香山的外围，所以我们需要首先删除 VC707Shell 提供的外围和其他的外设支持。我们在 repo/starship/src/main/scala 中新建了 Axi4 文件夹，里面是对应的模块实现，旨在删除外围部件，仅保留一个 memory 接口和一个 MMIO 接口。
+因为我们的处理器使用一生一芯的外围，所以我们需要首先删除 VC707Shell 提供的外围和其他的外设支持。我们在 repo/starship/src/main/scala 中新建了 Axi4 文件夹，里面是对应的模块实现，旨在删除外围部件，仅保留一个 memory 接口和一个 MMIO 接口。
 
 修改 AXI4Top.scala 模块：
 
@@ -51,7 +51,7 @@ sycuricon( 六 ): 流片
 修改 MMIO 范围
 --------------------------
 
-香山提供的外围的 MMIO 地址范围在 0x1000000-0x80000000，所以我们需要将 MMIO 的地址范围做对应的修改，不然到时候核内寻址不会将地址读写请求从 MMIO 口中发送出来。
+一生一芯提供的外围的 MMIO 地址范围在 0x1000000-0x80000000，所以我们需要将 MMIO 的地址范围做对应的修改，不然到时候核内寻址不会将地址读写请求从 MMIO 口中发送出来。
 
 这里对 Config.scala 进行修改，可以看到 BaseConfig 对 ExtBus 参数进行了修改，将 base 设置为 0x1000_0000，将 size 设置为 0x7000_0000。
 
@@ -76,7 +76,7 @@ sycuricon( 六 ): 流片
 启动过程调整
 -----------------------
 
-在香山提供的启动过程中，我们的处理器从 0x30000000 开始启动，然后开始访问对应地址范围的 flash。该 flash 前半部分是一段启动代码，后半部分是系统程序镜像，处理器执行前半部分的启动代码将程序镜像 copy 到内存中，然后开始后续的系统启动。
+在一生一芯提供的启动过程中，我们的处理器从 0x30000000 开始启动，然后开始访问对应地址范围的 flash。该 flash 前半部分是一段启动代码，后半部分是系统程序镜像，处理器执行前半部分的启动代码将程序镜像 copy 到内存中，然后开始后续的系统启动。
 
 所以我们让处理器在 zsbl 当中执行 0x30000000 的跳转。所以对 firmware 的 zsbl 代码进行调整，修改为
 
@@ -126,112 +126,31 @@ IP 核的替换
 
 我们 Top 内部的 cache 是用 array 实现的，但是当我们将代码综合为后端版图的时候，这些 array 只能被综合成一些离散的寄存器。但实际上为了节约芯片面积，我们希望用 sram IP 核来替换这些 array 模块，这样我们综合的版图就可以用 SRAM 实现 cache。
 
-需要替换的主要就是 icache、dcache 的 data array 和 tage array，他们的尺寸可以用 512x64、64x84、64x88 的 sram ip 拼接而成。我们用 sram 自动化工具生成对应的 sram 文件，其中一个的模块声明如下：
+需要替换的主要就是 icache、dcache 的 data array 和 tage array，他们的尺寸可以用 512x64、64x84、64x88 的 sram ip 拼接而成。
 
-.. code-block:: verilog
+我们用 sram 自动化工具生成对应的 sram 文件，这些工业级的 ip 核输入输出引脚一般如下：
 
-    module TS5N28HPCPLVTA64X84M2FW (
-        CLK, CEB, WEB,
-        A, D,
-        BWEB,
-        Q);
-    
-    //=== IO Ports ===//
-
-    // Normal Mode Input
-    input CLK;
-    input CEB;
-    input WEB;
-    input [5:0] A;
-    input [83:0] D;
-    input [83:0] BWEB;
-
-    // Data Output
-    output [83:0] Q;
-
-* CEB：芯片使能信号，只有当 CEB=0 的时候才可以执行读写操作
-* WEB：芯片写使能信号，只有当 WEB=0 的时候才可以执行写操作
+* CE：芯片使能信号，只有当 CE=0 的时候才可以执行读写操作
+* WE：芯片写使能信号，只有当 WE=0 的时候才可以执行写操作
 * A：地址信号线
 * D：数据信号线
-* BWEB：芯片位写使能信号线，只有当对应位的 BWEB=0 的时候才可以对这个位执行写操作
+* BWE：芯片位写使能信号线，只有当对应位的 BWE=0 的时候才可以对这个位执行写操作
 * Q：芯片数据输出
 * 时序：芯片的读写操作都需要等待一个周期完成
 
 然后我们对 Top 中的 array 进行替换，实际上只需要对自动化生成的 array 模块做替换即可，但是因为经验不足对 top 的源代码做了替换，到之后后续每次重新生成 top 都要替换一次代码。
-
-.. code-block:: Verilog
-
-    module tag_array_0(
-        input  [5:0]  RW0_addr,
-        input         RW0_en,
-        input         RW0_clk,
-        input         RW0_wmode,
-        input  [20:0] RW0_wdata_0,
-        input  [20:0] RW0_wdata_1,
-        input  [20:0] RW0_wdata_2,
-        input  [20:0] RW0_wdata_3,
-        output [20:0] RW0_rdata_0,
-        output [20:0] RW0_rdata_1,
-        output [20:0] RW0_rdata_2,
-        output [20:0] RW0_rdata_3,
-        input         RW0_wmask_0,
-        input         RW0_wmask_1,
-        input         RW0_wmask_2,
-        input         RW0_wmask_3
-    );
-        wire [5:0] tag_array_0_ext_RW0_addr;
-        wire  tag_array_0_ext_RW0_en;
-        wire  tag_array_0_ext_RW0_clk;
-        wire  tag_array_0_ext_RW0_wmode;
-        wire [83:0] tag_array_0_ext_RW0_wdata;
-        wire [83:0] tag_array_0_ext_RW0_rdata;
-        wire [3:0] tag_array_0_ext_RW0_wmask;
-        wire [41:0] _GEN_0 = {RW0_wdata_3,RW0_wdata_2};
-        wire [41:0] _GEN_1 = {RW0_wdata_1,RW0_wdata_0};
-        wire [1:0] _GEN_2 = {RW0_wmask_3,RW0_wmask_2};
-        wire [1:0] _GEN_3 = {RW0_wmask_1,RW0_wmask_0};
-
-        wire [83:0] sram_wmask;
-        genvar i;
-        generate
-            for(i=0;i<=3;i=i+1)begin:tag_array_0
-            assign sram_wmask[i*21+20:i*21]={21{~tag_array_0_ext_RW0_wmask[i]}};
-            end
-        endgenerate
-
-        TS5N28HPCPLVTA64X84M2FW tag_array_0_ext (
-            .A(tag_array_0_ext_RW0_addr),
-            .CEB(~tag_array_0_ext_RW0_en),
-            .CLK(tag_array_0_ext_RW0_clk),
-            .WEB(~tag_array_0_ext_RW0_wmode),
-            .D(tag_array_0_ext_RW0_wdata),
-            .Q(tag_array_0_ext_RW0_rdata),
-            .BWEB(sram_wmask)
-        );
-
-        assign tag_array_0_ext_RW0_clk = RW0_clk;
-        assign tag_array_0_ext_RW0_en = RW0_en;
-        assign tag_array_0_ext_RW0_addr = RW0_addr;
-        assign RW0_rdata_0 = tag_array_0_ext_RW0_rdata[20:0];
-        assign RW0_rdata_1 = tag_array_0_ext_RW0_rdata[41:21];
-        assign RW0_rdata_2 = tag_array_0_ext_RW0_rdata[62:42];
-        assign RW0_rdata_3 = tag_array_0_ext_RW0_rdata[83:63];
-        assign tag_array_0_ext_RW0_wmode = RW0_wmode;
-        assign tag_array_0_ext_RW0_wdata = {_GEN_0,_GEN_1};
-        assign tag_array_0_ext_RW0_wmask = {_GEN_2,_GEN_3};
-    endmodule
 
 注意：
 
 * rocket 中的使能信号都是高电平使能，这里需要手动修改为低电平使能
 * rocket 的段使能都是多位的，而 sram 的段使能是单位的，需要做一个转换
 
-接入香山外围
+接入一生一芯外围
 -----------------------
 
-这部分由香山实验室提供测试仿真的外围环境，因为他们的外围只有一个面向处理器的 AXI 口，因此需要额外生成一个 NIC 桥将我们处理器的两个口转换为一个口，然后和外围连接。
+这部分由一生一芯团队提供测试仿真的外围环境，因为他们的外围只有一个面向处理器的 AXI 口，因此需要额外生成一个 NIC 桥将我们处理器的两个口转换为一个口，然后和外围连接。
 
-这部分代码因为是对方机密，所以不予开源。
+这部分代码因为是合作方技术产权，所以不予开源。
 
 增加 debug module 支持
 --------------------------
@@ -485,7 +404,7 @@ IP 核的替换
 功能测试
 ----------------------
 
-首先我们执行了香山提供的三个测试：
+首先我们执行了一生一芯提供的三个测试：
 
 * print hello world：测试外围的串口正确，测试 flash 读写正确
 * memory copy：测试内存读写正确
@@ -527,11 +446,11 @@ JTAG 测试
 * 因为没有 to_host 的检查，在 write_host 之后加入一条 read_host，然后对硬件做 hook，检查读 host 地址的时候对应的值是不是 1（替换原来的 host 写入 1 结束的 pass 条件）
 * 编写 Python 脚本让处理器自动化的执行各个测试
 
-这三部分测试和仿真环境因为设计香山的技术，所以保持闭源。
+这三部分测试和仿真环境因为涉及一生一芯的仿真环境，所以保持闭源。
 
 内核启动测试
 -------------------
 
 没有真的执行，理论上应该让处理器执行完整的内核。
 
-但是我们没有香山外围的设备树，所以没有办法实现最后的系统镜像，这部分等后续有机会弥补。
+但是我们没有一生一芯外围的设备树，所以没有办法实现最后的系统镜像，这部分等后续有机会弥补。
