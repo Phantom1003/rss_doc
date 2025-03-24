@@ -94,32 +94,23 @@ openocd 连接
 
 我们在 riscv-spike-sdk 中集成了 openocd 子模块、编译脚本和调试脚本，这部分内容我们特意留到这个调试专题进行介绍。openocd 用于向 debug module 发送调试命令，一般来说它被用于 gdb 和 jtag 之间的桥梁，将调试命令在 gdb 数据包和 jtag 的 01 信号之间进行转换。
 
-.. code-block:: Makefile
-
-    openocd_srcdir := $(srcdir)/riscv-openocd
-    openocd_wrkdir := $(wrkdir)/riscv-openocd
-    openocd := $(toolchain_dest)/bin/openocd
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 53-55
+	:caption: openocd 路径变量
 
 * repo/riscv-openocd：专门用于 riscv 指令集调试的 openocd 的源代码
 * build/riscv-openocd：编译 openocd 的工作区
 * toolchain/bin/openocd：编译之后安装的 openocd 工具
 
-.. code-block:: Makefile
-
-    $(openocd): $(openocd_srcdir)
-        rm -rf $(openocd_wrkdir)
-        mkdir -p $(openocd_wrkdir)
-        mkdir -p $(dir $@)
-        cd $(openocd_srcdir) && $</bootstrap
-        cd $(openocd_wrkdir) && $</configure \
-            --enable-remote-bitbang \
-            --prefix=$(dir $(abspath $(dir $@)))
-        $(MAKE) -C $(openocd_wrkdir)
-        $(MAKE) -C $(openocd_wrkdir) install
-        touch -c $@
-    
-    .PHONY: openocd
-    openocd: $(openocd)
+.. remotecode:: ../_static/tmp/rss_makefile
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/Makefile
+	:language: Makefile
+	:type: github-permalink
+	:lines: 191-201
+	:caption: openocd 编译
 
 执行 ``make openocd`` 可以对 openocd 进行编译，首先用 bootstrap 和 configure 进行编译的配置生成，然后执行 make 和 make install 进行编译和安装。需要注意的是后，configure 执行的时候需要额外带 ``--enable-remote-bitbang`` 选项，这样编译得到的 openocd 才支持 remote_bitbang 连接。
 
@@ -172,22 +163,11 @@ conf/spike.cfg 是用于 openocd 对 spike 进行调试的配置，其内容如�
 * -irlen：IR 的长度
 * -expected-id：期待读到的 debug module 的版本号，不设置也可以
 
-.. code-block:: text
-
-    interface remote_bitbang
-    remote_bitbang_host localhost
-    remote_bitbang_port 9824
-
-    set _CHIPNAME riscv
-    jtag newtap $_CHIPNAME cpu -irlen 5 -expected-id 0x10e31913
-
-    set _TARGETNAME $_CHIPNAME.cpu
-    target create $_TARGETNAME riscv -chain-position $_TARGETNAME
-
-    gdb_report_data_abort enable
-
-    init
-    halt
+.. remotecode:: ../_static/tmp/debug_spike_cfg
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/conf/spike.cfg
+	:language: text
+	:type: github-permalink
+	:caption: openocd 连接 spike 配置脚本
 
 gdb 连接
 --------------------------------
@@ -243,21 +223,12 @@ debug_rom
 
 当 debug module 中断程序，或者程序遇到 ebreak 之后会陷入到这个 0x800 的地址，执行具体的汇编指令在这里。这里通过 MMIO，处理器软件和 debug module 之间进行信号的传输，需要注意，因为是 MMIO，访问一个地址的行为并不等同与访问一个寄存器或者内存，也许只能读到部分 bit、也许读到的是某个组合电路的返回结果。
 
-.. code-block:: asm
-
-	entry_loop:
-        csrr s0, CSR_MHARTID
-        sw   s0, DEBUG_ROM_HALTED(zero)
-        lbu  s0, DEBUG_ROM_FLAGS(s0) // 1 byte flag per hart. Only one hart advances here.
-        andi s0, s0, (1 << DEBUG_ROM_FLAG_GO)
-        bnez s0, going
-
-        csrr s0, CSR_MHARTID
-        lbu  s0, DEBUG_ROM_FLAGS(s0) // multiple harts can resume  here
-        andi s0, s0, (1 << DEBUG_ROM_FLAG_RESUME)
-        bnez s0, _resume
-        wfi
-        jal  zero, entry_loop
+.. remotecode:: ../_static/tmp/debug_rom
+	:url: https://github.com/sycuricon/riscv-isa-cosim/blob/64e181f581aadc294d745203e914e99c9b3e1715/debug_rom/debug_rom.S
+	:language: asm
+	:type: github-permalink
+	:lines: 28-43
+	:caption: debug rom 主循环
 
 * 首先将自己的 mhartid 读出写入到 0x100 地址当中，从而告诉 debug module 当前程序的 hart id
 * 用 lbu 访问 0x1000 地址，从 debug module 中获得但前 hart 的 go、resume 等状态
@@ -287,50 +258,35 @@ rocket-chip 的 debug module
 
 可以看到 StarshipSimDebugConfig 在 StarshipSimConfig 的基础上多了一行 ``WithJtagDTM``；StarshipSimTop 多了一行 ``with HasPeripheryDebug``。从而让 Starship 内部增加并且连接了 debug module。
 
-.. code-block:: text
+.. remotecode:: ../_static/tmp/starship_sim_debug_config
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/asic/Configs.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 39-48
+	:caption: StarshipSimDebugConfig
 
-    class StarshipSimDebugConfig extends Config(
-        new WithPeripherals ++
-        new WithJtagDTM ++
-        new WithClockGateModel() ++
-        new StarshipBaseConfig().alter((site,here,up) => {
-            case PeripheryBusKey => up(PeripheryBusKey, site).copy(dtsFrequency = Some(site(FrequencyKey).toInt * 1000000))
-            /* timebase-frequency = 1 MHz */
-            case DTSTimebase => BigInt(1000000L)
-        })
-    )
-
-    class StarshipSimTop(implicit p: Parameters) extends StarshipSystem
-        with CanHaveMasterAXI4MemPort
-        with CanHaveSlaveAXI4Port
-        with HasAsyncExtInterrupts
-        with HasPeripheryUART
-        with HasPeripheryDebug
-        with CanHavePeripheryMagicDevice
-    {
-        val chosen = new DeviceSnippet {
-            def describe() = Description("chosen", Map(
-            "bootargs" -> Seq(ResourceString("nokaslr"))
-            ))
-        }
-
-        override lazy val module = new StarshipSimTopModuleImp(this)
-    }
+.. remotecode:: ../_static/tmp/starship_sim_debug_top
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/asic/SimTop.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 17-32
+	:caption: StarshipSimTop
 
 之后我们对 Testharness 进行修改，将 debug module 和外围连接起来。以下仅展示 debug module 相关的部分，首先 reset 信号和 debug 模块的 reset 信号或起来，让 debug module 可以复位处理器；其次 ``Debug.connectDebug`` 函数将 dut 的 debug module 相关的接口和一些外部连接连接起来，然后将 jtag 信号和一个模拟的 remotebitbang 模块连接起来。
 
-.. code-block:: text
+.. remotecode:: ../_static/tmp/starship_sim_debug_top
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/asic/SimTop.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 41-52
+	:caption: 调试 testharness part 1
 
-    class TestHarness()(implicit p: Parameters) extends Module {
-
-        val ldut = LazyModule(new StarshipSimTop)
-        val dut = Module(ldut.module)
-
-        // Allow the debug ndreset to reset the dut, but not until the initial reset has completed  
-        dut.reset := (reset.asBool | ldut.debug.map { debug => AsyncResetReg(debug.ndreset) }.getOrElse(false.B)).asBool
-
-        Debug.connectDebug(ldut.debug, ldut.resetctrl, ldut.psd, clock, reset.asBool, WireInit(false.B))
-    }
+.. remotecode:: ../_static/tmp/starship_sim_debug_top
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/asic/SimTop.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 77-78
+	:caption: 调试 testharness part 2
 
 debug module 外部连接
 ---------------------------
@@ -430,29 +386,11 @@ SimJTAG 模块内部是个 DPI-C 的 jtag-tick function 接口，这个接口会
 
 当 rocket-chip 生成 SimJTAG.cc 模块之后注意这里的 ``jtag = new remote_bitbang_t(0);``，参数 0 说明生成的 port 是随机的，为了让这个端口可以是固定的 9824， 从而配合我们的 spike.cfg 脚本使用，我们将 0 改为 9824，之后就可以后取得调试和连接了。
 
-.. code-block:: C++
-
-    remote_bitbang_t* jtag;
-    extern "C" int jtag_tick
-    (
-        unsigned char * jtag_TCK,
-        unsigned char * jtag_TMS,
-        unsigned char * jtag_TDI,
-        unsigned char * jtag_TRSTn,
-        unsigned char jtag_TDO
-    )
-    {
-        if (!jtag) {
-            // TODO: Pass in real port number
-            jtag = new remote_bitbang_t(0);
-        }
-
-        jtag->tick(jtag_TCK, jtag_TMS, jtag_TDI, jtag_TRSTn, jtag_TDO);
-
-        return jtag->done() ? (jtag->exit_code() << 1 | 1) : 0;
-
-    }
-
+.. remotecode:: ../_static/tmp/rocket_chip_sim_jtag
+	:url: https://github.com/chipsalliance/rocket-chip/blob/master/src/main/resources/csrc/SimJTAG.cc
+	:language: C++
+	:type: github-permalink
+	:caption: SimJTAG
 
 调试
 --------------------
@@ -542,45 +480,19 @@ rocket-chip 的 debug module
 
 StarshipFPGADebugConfig 在原来 StarshipFPGAConfig 的基础上将 ``case DebugModuleKey => None`` 注释掉，这样就可以生成 DebugModule 模块；StarshipFPGATop 同理增加 ``with HasPeripheryDebug``，允许提供 debug 的外围设备。
 
-.. code-block:: text
+.. remotecode:: ../_static/tmp/starship_fpga_devbug_config
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/fpga/Configs.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 50-64
+	:caption: StarshipFPGADebugConfig
 
-    class StarshipFPGADebugConfig extends Config(
-        new WithPeripherals ++
-        new WithJtagDTM ++
-        new WithClockGateModel() ++
-        new StarshipBaseConfig().alter((site,here,up) => {
-            //case DebugModuleKey => None
-            case PeripheryBusKey => up(PeripheryBusKey, site).copy(dtsFrequency = Some(site(FrequencyKey).toInt * 1000000))
-            /* timebase-frequency = 1 MHz */
-            case DTSTimebase => BigInt(1000000L)
-            /* memory-size = 1 GB */
-            case MemoryXilinxDDRKey => XilinxVC707MIGParams(address = Seq(AddressSet(0x80000000L,site(VCU707DDRSizeKey)-1)))
-            case ExtMem => up(ExtMem, site).map(x =>
-            x.copy(master = x.master.copy(size = site(VCU707DDRSizeKey))))
-        })
-        )
-    
-    class StarshipFPGATop(implicit p: Parameters) extends StarshipSystem
-        with HasPeripheryUART
-        with HasPeripherySPI
-        with HasPeripheryDebug
-        with HasMemoryXilinxVC707MIG
-    {
-
-        val chosen = new DeviceSnippet {
-            def describe() = Description("chosen", Map(
-            "bootargs" -> Seq(ResourceString("nokaslr"))
-            ))
-        }
-
-        val mmc = new MMCDevice(tlSpiNodes.head.device)
-        ResourceBinding {
-            Resource(mmc, "reg").bind(ResourceAddress(0))
-        }
-
-        override lazy val module = new StarshipFPGATopModuleImp(this)
-
-    }
+.. remotecode:: ../_static/tmp/starship_fpga_debug_top
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/fpga/VC707.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 24-44
+	:caption: StarshipFPGADebugTop
 
 我们第一次简单分析一下 TestHarness 的实现细节：
 
@@ -589,53 +501,21 @@ StarshipFPGADebugConfig 在原来 StarshipFPGAConfig 的基础上将 ``case Debu
 * 将 ndreset 和 io_reset 或起来控制 core 的复位
 * 调用 ``Debug.connectDebugClockAndReset`` 设置 debug 的 reset 和 clock 信号
 
-.. code-block:: text
-
-    class TestHarness(override implicit val p: Parameters) extends VC707Shell
-        with HasDDR3
-        with HasDebugJTAG
-    {
-
-        dut_clock := (p(FPGAFrequencyKey) match {
-            case 25 => clk25
-            case 50 => clk50
-            case 100 => clk100
-            case 150 => clk150
-        })
-
-        withClockAndReset(dut_clock, dut_reset) {
-            val top = LazyModule(new StarshipFPGATop)
-            val dut = Module(top.module)
-
-            connectSPI      (dut)
-            connectUART     (dut)
-            connectMIG      (dut)
-            connectDebugJTAG(top)
-
-            val childReset = (dut_reset.asBool | top.debug.map { debug => AsyncResetReg(debug.ndreset) }.getOrElse(false.B)).asBool
-            dut.reset := childReset
-
-            dut_ndreset := 0.U
-
-            dut.tieOffInterrupts()
-            dut.dontTouchPorts()
-
-            top.resetctrl.foreach { rc =>
-            rc.hartIsInReset.foreach { _ := childReset }
-        }
-        Debug.connectDebugClockAndReset(top.debug, dut_clock)
-    }
+.. remotecode:: ../_static/tmp/starship_fpga_debug_top
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/repo/starship/src/main/scala/fpga/VC707.scala
+	:language: scala
+	:type: github-permalink
+	:lines: 52-87
+	:caption: Debug Testharness
 
 和 StarshipSimDebugTop 的区别就在于没有给 JTAG 连接 SimJTAG，而是直接连到了 VC707Shell 的外设输入输出引脚。我们可以在 build/rocket-chip 中看到 Rocket.StarshipFPGATop.StarshipFPGADebugConfig.vc707debugjtag.xdc 引脚约束，定义了
 
-.. code-block:: text
-
-    set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets jtag_TCK]
-    set_property -dict { PACKAGE_PIN BB24  IOSTANDARD LVCMOS18  PULLUP TRUE } [get_ports {jtag_TCK}]
-    set_property -dict { PACKAGE_PIN BA21  IOSTANDARD LVCMOS18  PULLUP TRUE } [get_ports {jtag_TMS}]
-    set_property -dict { PACKAGE_PIN BB21  IOSTANDARD LVCMOS18  PULLUP TRUE } [get_ports {jtag_TDI}]
-    set_property -dict { PACKAGE_PIN BB23  IOSTANDARD LVCMOS18  PULLUP TRUE } [get_ports {jtag_TDO}]
-    create_clock -add -name JTCK        -period 100   -waveform {0 50} [get_ports {jtag_TCK}];
+.. remotecode:: ../_static/tmp/debug_jtag_patch
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/patch/rocket-chip-fpga-shells/6.patch
+	:language: text
+	:type: github-permalink
+	:lines: 13-17
+	:caption: JTAG IO 引脚约束
 
 这里约束了四个 JTAG 输入输出的 IO 引脚，并且给 jtag_TCLK 一个 100MHz 的虚拟时钟域，用于仿真时候 DTM 等模块的时序约束检查。
 
@@ -655,12 +535,12 @@ jtag 调试板连接
 * GPIO 阵列的 19 号引脚用于连接 TDO，PIN 号是 BB24
 * GPIO 阵列的 20 号引脚用于连接 TCLK，PIN 号是 BB23
 
-.. code-block:: text
-
-            14 VCC   17 GPIO1 TDI   BB21
-            16 GND   18 GPIO0 TMS   BA21
-    17 DI   18 MS    19 GPIO3 TDO   BB24
-    19 DO   20 CLK   20 GPIO2 TCLK  BB23
+.. remotecode:: ../_static/tmp/debug_jtag_patch
+	:url: https://github.com/sycuricon/starship/blob/974e2e6af819f7755f5e7d251b427a554fa082f3/patch/rocket-chip-fpga-shells/6.patch
+	:language: text
+	:type: github-permalink
+	:lines: 26-29
+	:caption: GPIO 引脚连接
 
 这里本人使用的是 Sipeed RV-Debugger Lite JTAG/UART 调试芯片（没有打广告的意思），该芯片的引脚输入输出如下：
 
@@ -702,23 +582,11 @@ jtag 调试板连接
 * ftdi vid_pid：调试板的 vendor id 和 product id
 * ftdi channel：连接的 ftdi 的通道序号，jtag 是 0，uart 是 1
 
-.. code-block:: text
-
-    adapter speed 100000
-    adapter driver ftdi
-    ftdi vid_pid 0x0403 0x6010
-    ftdi channel 0
-    ftdi layout_init 0x00e8 0x60eb
-    reset_config none
-    transport select jtag
-    set _CHIPNAME riscv
-    jtag newtap $_CHIPNAME cpu -irlen 5
-
-    set _TARGETNAME $_CHIPNAME.cpu
-
-    target create $_TARGETNAME.0 riscv -chain-position $_TARGETNAME
-    $_TARGETNAME.0 configure -work-area-phys 0x80000000 -work-area-size 10000 -work-area-backup 1 
-    riscv use_bscan_tunnel 0
+.. remotecode:: ../_static/tmp/starship_openocd_cfg
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/69293c1662e3de3eadc4174bdfc2ca5b37e6bee4/conf/starship.cfg
+	:language: text
+	:type: github-permalink
+	:caption: starship openocd 连接配置脚本
 
 之后执行 ``openocd -f starship.cfg`` 连接，但是会报错。首先 openocd 访问 USB 接口是需要 root 权限的，所以需要 sudo 执行。其次，vivado 进行 fpga 下板子的 jtag 线也是 ftdi 驱动，这个时候 openocd 会优先连接 vivado 的 ftdi 驱动，所以必须把 vivado 的 jtag 线拔了。所以正确的操作时，拔了 vivado 的 jtag 线之后执行 ``sudo openocd -f conf/starship.cfg``。之后就可以顺利调试了。
 

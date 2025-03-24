@@ -14,5 +14,7 @@ Internal
   jtag-debug
   custom-instruction
   tape-out
+  custom-scie
+  benchmark
 
 .. footbibliography::
