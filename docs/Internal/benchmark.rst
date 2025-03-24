@@ -22,7 +22,7 @@ config-run 的执行方式是执行 benchmp 对需要测试的函数进行多线
 .. remotecode:: ../_static/tmp/benchmark_link
 	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/0f62b52a0499830c76ff7562d323f76b69446afe/.gitmodules
 	:language: text
-    :type: github-permalink
+	:type: github-permalink
 	:lines: 25-27
 	:caption: Lmbench 子模块定义
 
@@ -30,7 +30,7 @@ config-run 在执行程序的时候会先检查一下处理器的内存大小，
 这个内存检查过程非常慢，考虑到我们处理器内存一般是完全够用的，我们可以将对应的内存检查代码注释掉，节约内存检查的时间。
 
 .. remotecode:: ../_static/tmp/lmbench_mem_config
-	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/0f62b52a0499830c76ff7562d323f76b69446afe/.gitmodules
+	:url: https://github.com/docularxu/lmbench-3.0-a9/blob/37390e8321ce27b69642d3ac10b4dad46acb8ba4/scripts/config-run
 	:language: text
 	:type: github-permalink
 	:lines: 200-223
@@ -119,11 +119,13 @@ config-run 在执行程序的时候会先检查一下处理器的内存大小，
 	:lines: 120-133
 	:caption: 加入 execute 编译
 
+上述所有的修改，被我们打包到 benchmark/patch/lmbench.patch 当中，可以用 git apply 一键修改。
+
 Unixbench
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. remotecode:: ../_static/tmp/benchmark_link
-	:url: https://github.com/Phantom1003/rocket-chip/blob/53d8185a0e5cc1258acaccb60a89bfd60cbc58a1/src/main/scala/scie/SCIE.scala
+	:url: https://github.com/sycuricon/riscv-spike-sdk/blob/0f62b52a0499830c76ff7562d323f76b69446afe/.gitmodules
 	:language: text
 	:type: github-permalink
 	:lines: 22-24
