@@ -13,7 +13,8 @@ def check_file_exist(path, url):
 
         response = requests.get(url)
         if response.status_code == 200:
-            print(f"Under {os. getcwd()}. Downloading {url} to {path}")
+            print(f"Under {os.getcwd()}. Downloading {url} to {path}")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "wb") as file:
                 file.write(response.content)
         else:
